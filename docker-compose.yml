@@ -1,0 +1,106 @@
+services:
+  guacd:
+    container_name: guacd
+    image: guacamole/guacd:1.6.0
+    restart: unless-stopped
+    networks:
+      - guacamole-network
+    volumes:
+      - ./drive:/drive:rw
+      - ./record:/record:rw
+    environment:
+      - LOG_LEVEL=info
+    
+  guacdb:
+    container_name: guacdb
+    image: mariadb:11.4
+    restart: unless-stopped
+    networks:
+      - guacamole-network
+    environment:
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-GuacamoleRootPassword}
+      MARIADB_DATABASE: ${DB_NAME:-guacamole_db}
+      MARIADB_USER: ${DB_USER:-guacamole_user}
+      MARIADB_PASSWORD: ${DB_PASSWORD:-GuacamoleUserPassword}
+      MARIADB_AUTO_UPGRADE: '1'
+    volumes:
+      - db-data:/var/lib/mysql
+      - ./init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "3306:3306"
+    
+  guacamole-api:
+    container_name: guacamole-api
+    image: guacamole/guacamole:1.6.0
+    restart: unless-stopped
+    networks:
+      - guacamole-network
+    ports:
+      - "8080:8080"
+    # Port 8080 is exposed for host access during development FIXME: remove this in production 8080:8080
+    environment:
+      # Guacd Configuration
+      LOG_LEVEL: "debug"
+      GUACD_HOSTNAME: "guacd"
+      GUACD_PORT: "4822"
+      
+      # Database Configuration
+      MYSQL_HOSTNAME: "guacdb"
+      MYSQL_PORT: "3306"
+      MYSQL_DATABASE: ${DB_NAME:-guacamole_db}
+      MYSQL_USER: ${DB_USER:-guacamole_user}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-GuacamoleUserPassword}
+      
+      # Application Configuration
+      WEBAPP_CONTEXT: "guacamole"
+      
+      # API Configuration
+      GUACAMOLE_HOME: "/etc/guacamole"
+      
+      # Security Configuration
+      ENABLE_WEBSOCKETS: "true"
+      TOTP_ENABLED: "false"
+      
+      # Optional: Recording and Drive Configuration
+      RECORDING_SEARCH_PATH: "/record"
+      DRIVE_ENABLED: "true"
+      DRIVE_PATH: "/drive"
+      
+    depends_on:
+      - guacdb
+      - guacd
+    volumes:
+      - ./drive:/drive:rw
+      - ./record:/record:rw
+
+  # app:
+  #   container_name: guacamole-nextjs-app
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   restart: unless-stopped
+  #   networks:
+  #     - guacamole-network
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     - NODE_ENV=production
+  #     - DATABASE_URL=mysql://${DB_USER:-guacamole_user}:${DB_PASSWORD:-GuacamoleUserPassword}@guacdb:3306/${DB_NAME:-guacamole_db}
+  #     - DATABASE_HOST=guacdb
+  #     - DATABASE_USER=${DB_USER:-guacamole_user}
+  #     - DATABASE_PASSWORD=${DB_PASSWORD:-GuacamoleUserPassword}
+  #     - DATABASE_NAME=${DB_NAME:-guacamole_db}
+  #     - DATABASE_PORT=3306
+  #     - GUACAMOLE_API_URL=http://guacamole-api:8080/guacamole
+  #     - NEXT_PUBLIC_API_URL=/api
+  #   depends_on:
+  #     - guacdb
+  #     - guacamole-api
+
+volumes:
+  db-data:
+    driver: local
+
+networks:
+  guacamole-network:
+    driver: bridge
