@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Outfit } from 'next/font/google';
+import { Toaster } from 'sonner';
 import './globals.css';
 
 const outfit = Outfit({
@@ -8,7 +9,7 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: 'Military Grade Guacamole Portal',
+  title: 'Secure Machine Portal',
   description: 'Secure remote desktop access portal',
 };
 
@@ -20,6 +21,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${outfit.variable} font-sans antialiased bg-background text-foreground`}>
+        <Toaster position="top-right" richColors />
         {children}
       </body>
     </html>

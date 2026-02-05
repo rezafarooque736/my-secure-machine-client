@@ -1,4 +1,22 @@
 services:
+  # VNC Desktop Service - Ubuntu with XFCE Desktop
+  vnc-desktop:
+    container_name: vnc-desktop
+    image: consol/ubuntu-xfce-vnc:latest
+    restart: unless-stopped
+    networks:
+      - guacamole-network
+    ports:
+      - '5901:5901' # VNC port (optional, for direct VNC client access)
+      - '6901:6901' # noVNC port (optional, for browser access)
+    environment:
+      - VNC_PW=${VNC_PASSWORD:-vncpassword}
+      - VNC_RESOLUTION=${VNC_RESOLUTION:-1920x1080}
+      - VNC_COL_DEPTH=${VNC_COLOR_DEPTH:-24}
+    volumes:
+      - vnc-home:/headless
+    shm_size: '2gb' # Shared memory for better performance
+
   guacd:
     container_name: guacd
     image: guacamole/guacd:1.6.0
@@ -10,7 +28,7 @@ services:
       - ./record:/record:rw
     environment:
       - LOG_LEVEL=info
-    
+
   guacdb:
     container_name: guacdb
     image: mariadb:11.4
@@ -27,8 +45,13 @@ services:
       - db-data:/var/lib/mysql
       - ./init:/docker-entrypoint-initdb.d:ro
     ports:
-      - "3306:3306"
-    
+      - '3306:3306'
+    healthcheck:
+      test: ['CMD', 'healthcheck.sh', '--connect', '--innodb_initialized']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   guacamole-api:
     container_name: guacamole-api
     image: guacamole/guacamole:1.6.0
@@ -36,43 +59,52 @@ services:
     networks:
       - guacamole-network
     ports:
-      - "8080:8080"
-    # Port 8080 is exposed for host access during development FIXME: remove this in production 8080:8080
+      - '8080:8080'
     environment:
       # Guacd Configuration
-      LOG_LEVEL: "debug"
-      GUACD_HOSTNAME: "guacd"
-      GUACD_PORT: "4822"
-      
+      LOG_LEVEL: 'info'
+      GUACD_HOSTNAME: 'guacd'
+      GUACD_PORT: '4822'
+
       # Database Configuration
-      MYSQL_HOSTNAME: "guacdb"
-      MYSQL_PORT: "3306"
+      MYSQL_HOSTNAME: ${DB_HOST:-guacdb}
+      MYSQL_PORT: ${DB_PORT:-3306}
       MYSQL_DATABASE: ${DB_NAME:-guacamole_db}
       MYSQL_USER: ${DB_USER:-guacamole_user}
       MYSQL_PASSWORD: ${DB_PASSWORD:-GuacamoleUserPassword}
-      
+
       # Application Configuration
-      WEBAPP_CONTEXT: "guacamole"
-      
+      WEBAPP_CONTEXT: 'guacamole'
+
       # API Configuration
-      GUACAMOLE_HOME: "/etc/guacamole"
-      
+      GUACAMOLE_HOME: '/etc/guacamole'
+
       # Security Configuration
-      ENABLE_WEBSOCKETS: "true"
-      TOTP_ENABLED: "false"
-      
+      ENABLE_WEBSOCKETS: 'true'
+      TOTP_ENABLED: 'false'
+
       # Optional: Recording and Drive Configuration
-      RECORDING_SEARCH_PATH: "/record"
-      DRIVE_ENABLED: "true"
-      DRIVE_PATH: "/drive"
-      
+      RECORDING_SEARCH_PATH: '/record'
+      DRIVE_ENABLED: 'true'
+      DRIVE_PATH: '/drive'
+
     depends_on:
-      - guacdb
-      - guacd
+      guacdb:
+        condition: service_healthy
+      guacd:
+        condition: service_started
+      vnc-desktop:
+        condition: service_started
     volumes:
       - ./drive:/drive:rw
       - ./record:/record:rw
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:8080/guacamole/']
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
+  # Uncomment when ready to deploy Next.js app in Docker
   # app:
   #   container_name: guacamole-nextjs-app
   #   build:
@@ -85,20 +117,21 @@ services:
   #     - "3000:3000"
   #   environment:
   #     - NODE_ENV=production
-  #     - DATABASE_URL=mysql://${DB_USER:-guacamole_user}:${DB_PASSWORD:-GuacamoleUserPassword}@guacdb:3306/${DB_NAME:-guacamole_db}
-  #     - DATABASE_HOST=guacdb
-  #     - DATABASE_USER=${DB_USER:-guacamole_user}
-  #     - DATABASE_PASSWORD=${DB_PASSWORD:-GuacamoleUserPassword}
-  #     - DATABASE_NAME=${DB_NAME:-guacamole_db}
-  #     - DATABASE_PORT=3306
+  #     - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/guacamole_db
   #     - GUACAMOLE_API_URL=http://guacamole-api:8080/guacamole
-  #     - NEXT_PUBLIC_API_URL=/api
+  #     - GUACAMOLE_WEBSOCKET_URL=ws://guacamole-api:8080/guacamole/websocket-tunnel
+  #     - GUACAMOLE_API_USERNAME=${GUACAMOLE_API_USERNAME}
+  #     - GUACAMOLE_API_PASSWORD=${GUACAMOLE_API_PASSWORD}
+  #     - NEXT_PUBLIC_GUACAMOLE_URL=${NEXT_PUBLIC_GUACAMOLE_URL}
+  #     - NEXT_PUBLIC_WEBSOCKET_URL=${NEXT_PUBLIC_WEBSOCKET_URL}
   #   depends_on:
   #     - guacdb
   #     - guacamole-api
 
 volumes:
   db-data:
+    driver: local
+  vnc-home:
     driver: local
 
 networks:

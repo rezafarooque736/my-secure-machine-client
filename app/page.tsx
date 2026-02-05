@@ -29,7 +29,10 @@ export default function LoginPage() {
 
   const form = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { username: '', password: '' },
+    defaultValues: {
+      username: '',
+      password: '',
+    },
   });
 
   // Handle hydration to prevent flickering and ensure persistence check works
@@ -45,76 +48,110 @@ export default function LoginPage() {
 
   const performLogin = async (values: LoginValues) => {
     setIsLoading(true);
+    console.log('🔐 Attempting login with:', { username: values.username, password: '***' });
+
     try {
-      const response = await axios.post('/api/auth/login', values);
+      const response = await axios.post('/api/auth/login', {
+        username: values.username.trim(),
+        password: values.password.trim(),
+      });
+
+      console.log('✅ Login response:', response.data);
+
       setAuth(response.data);
       toast.success('Authenticated successfully');
       router.push('/dashboard');
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Login failed');
+      console.error('❌ Login error:', error);
+      const errorMessage = error.response?.data?.error || 'Login failed. Please check your credentials.';
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
   };
 
   const onSubmit = (values: LoginValues) => {
+    console.log('📝 Form submitted:', { username: values.username, password: '***' });
     performLogin(values);
   };
 
   if (!isHydrated) return null;
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-950 p-4">
-      <div className="w-full max-w-md">
-        <div className="mb-8 text-center space-y-2">
-          <div className="mx-auto w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-4">
-            <ShieldCheck className="w-6 h-6 text-primary" />
+    <>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-950 p-4">
+        <div className="w-full max-w-md">
+          <div className="mb-8 text-center space-y-2">
+            <div className="mx-auto w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-4">
+              <ShieldCheck className="w-6 h-6 text-primary" />
+            </div>
+            <h1 className="text-3xl font-bold tracking-tight text-zinc-100">Guacamole Portal</h1>
+            <p className="text-zinc-400">Secure Remote Access</p>
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-zinc-100">Guacamole Portal</h1>
-          <p className="text-zinc-400">Secure Remote Access</p>
-        </div>
 
-        <Card className="bg-zinc-900/50 border-zinc-800 backdrop-blur-xl">
-          <CardHeader>
-            <CardTitle className="text-xl">Authentication</CardTitle>
-            <CardDescription className="text-zinc-500">
-              Enter your credentials to access your connections.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="username">Username</Label>
-                <Input
-                  id="username"
-                  {...form.register('username')}
-                  className="bg-zinc-950 border-zinc-800 focus-visible:ring-primary"
-                  placeholder="Username"
-                />
-                {form.formState.errors.username && (
-                  <p className="text-xs text-red-500">{form.formState.errors.username.message}</p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  {...form.register('password')}
-                  className="bg-zinc-950 border-zinc-800 focus-visible:ring-primary"
-                  placeholder="••••••••"
-                />
-                {form.formState.errors.password && (
-                  <p className="text-xs text-red-500">{form.formState.errors.password.message}</p>
-                )}
-              </div>
-              <Button type="submit" className="w-full font-semibold h-11" disabled={isLoading}>
-                {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : 'Login'}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+          <Card className="bg-zinc-900/50 border-zinc-800 backdrop-blur-xl">
+            <CardHeader>
+              <CardTitle className="text-xl">Authentication</CardTitle>
+              <CardDescription className="text-zinc-500">
+                Enter your credentials to access your connections.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="username">Username</Label>
+                  <Input
+                    id="username"
+                    type="text"
+                    autoComplete="username"
+                    {...form.register('username')}
+                    className="bg-zinc-950 border-zinc-800 focus-visible:ring-primary"
+                    placeholder="Enter your username"
+                    disabled={isLoading}
+                  />
+                  {form.formState.errors.username && (
+                    <p className="text-xs text-red-500">{form.formState.errors.username.message}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    autoComplete="current-password"
+                    {...form.register('password')}
+                    className="bg-zinc-950 border-zinc-800 focus-visible:ring-primary"
+                    placeholder="Enter your password"
+                    disabled={isLoading}
+                  />
+                  {form.formState.errors.password && (
+                    <p className="text-xs text-red-500">{form.formState.errors.password.message}</p>
+                  )}
+                </div>
+
+                <Button type="submit" className="w-full font-semibold h-11" disabled={isLoading}>
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      Authenticating...
+                    </>
+                  ) : (
+                    'Login'
+                  )}
+                </Button>
+              </form>
+
+              {/* Debug info in development */}
+              {process.env.NODE_ENV === 'development' && (
+                <div className="mt-4 p-3 bg-zinc-950/50 rounded border border-zinc-800">
+                  <p className="text-xs text-zinc-500 font-mono">Default: guacadmin / guacadmin</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

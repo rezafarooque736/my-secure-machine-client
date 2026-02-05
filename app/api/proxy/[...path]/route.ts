@@ -1,70 +1,85 @@
 import { NextRequest, NextResponse } from 'next/server';
-import axios from 'axios';
-import https from 'https';
 
-// Create axios instance that accepts self-signed certificates
-const httpsAgent = new https.Agent({
-  rejectUnauthorized: false,
-});
+const GUACAMOLE_URL = process.env.GUACAMOLE_API_URL || 'http://localhost:8080/guacamole';
 
-export async function GET(req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
-  const resolvedParams = await params;
-  return handleProxy(req, resolvedParams);
-}
-
-export async function POST(req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
-  const resolvedParams = await params;
-  return handleProxy(req, resolvedParams);
-}
-
-export async function PUT(req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
-  const resolvedParams = await params;
-  return handleProxy(req, resolvedParams);
-}
-
-export async function DELETE(req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
-  const resolvedParams = await params;
-  return handleProxy(req, resolvedParams);
-}
-
-async function handleProxy(req: NextRequest, params: { path: string[] }) {
-  const path = params.path.join('/');
-  const method = req.method;
-  const url = new URL(req.url);
-  const searchParams = Object.fromEntries(url.searchParams);
-
-  const GUACAMOLE_URL = process.env.GUACAMOLE_API_URL || 'https://192.168.1.25';
-
-  let body = null;
-  if (method !== 'GET' && method !== 'HEAD') {
-    try {
-      body = await req.json();
-    } catch (e) {
-      // Body might not be JSON or empty
-    }
-  }
-
+async function handleRequest(request: NextRequest, method: string) {
   try {
-    const response = await axios({
-      method: method.toLowerCase(),
-      url: `${GUACAMOLE_URL}/api/${path}`,
-      params: searchParams, // Token will be passed as query parameter
-      data: body,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      httpsAgent,
-      validateStatus: () => true,
-    });
+    const { pathname, searchParams } = new URL(request.url);
 
-    return NextResponse.json(response.data, {
+    // Extract the path after /api/proxy/
+    const pathSegments = pathname.split('/api/proxy/').pop() || '';
+    const targetUrl = `${GUACAMOLE_URL}/api/${pathSegments}`;
+
+    // Build query string
+    const queryString = searchParams.toString();
+    const fullUrl = queryString ? `${targetUrl}?${queryString}` : targetUrl;
+
+    console.log(`🔄 Proxying ${method} request to:`, fullUrl);
+
+    // Prepare headers
+    const headers: HeadersInit = {
+      Accept: 'application/json',
+    };
+
+    // Only add Content-Type for requests with body
+    if (method !== 'GET' && method !== 'DELETE') {
+      headers['Content-Type'] = 'application/json';
+    }
+
+    // Prepare fetch options
+    const fetchOptions: RequestInit = {
+      method,
+      headers,
+    };
+
+    // Add body for POST/PUT/PATCH
+    if (method !== 'GET' && method !== 'DELETE') {
+      try {
+        const body = await request.text();
+        if (body) {
+          fetchOptions.body = body;
+        }
+      } catch (e) {
+        // No body or invalid body
+      }
+    }
+
+    // Make the request
+    const response = await fetch(fullUrl, fetchOptions);
+
+    console.log(`📡 Response status:`, response.status);
+
+    // Return the response
+    const data = await response.text();
+
+    return new NextResponse(data, {
       status: response.status,
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': response.headers.get('Content-Type') || 'application/json',
       },
     });
   } catch (error: any) {
-    console.error('Proxy error:', error.message);
+    console.error(`💥 Proxy error:`, error.message);
     return NextResponse.json({ error: 'Proxy request failed', details: error.message }, { status: 500 });
   }
+}
+
+export async function GET(request: NextRequest) {
+  return handleRequest(request, 'GET');
+}
+
+export async function POST(request: NextRequest) {
+  return handleRequest(request, 'POST');
+}
+
+export async function PUT(request: NextRequest) {
+  return handleRequest(request, 'PUT');
+}
+
+export async function DELETE(request: NextRequest) {
+  return handleRequest(request, 'DELETE');
+}
+
+export async function PATCH(request: NextRequest) {
+  return handleRequest(request, 'PATCH');
 }

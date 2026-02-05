@@ -1,281 +1,238 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/store';
-import { ShieldCheck, Maximize2, Minimize2, LogOut, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ArrowLeft, Maximize2, Minimize2 } from 'lucide-react';
 import Guacamole from 'guacamole-common-js';
 
-export default function ConnectionPage({ params }: { params: { id: string } }) {
+export default function ConnectionPage() {
+  const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { user, isAuthenticated } = useAuthStore();
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [isConnected, setIsConnected] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(true);
-  const [isHydrated, setIsHydrated] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const displayRef = useRef<HTMLDivElement>(null);
-  const guacClientRef = useRef<any>(null);
-  const [connectionId, setConnectionId] = useState<string>('');
 
-  // Handle hydration
-  useEffect(() => {
-    setIsHydrated(true);
+  const wrapRef = useRef<HTMLDivElement>(null); // sizing container
+  const displayRef = useRef<HTMLDivElement>(null); // guac display mount
+  const clientRef = useRef<any>(null);
+  const keyboardRef = useRef<any>(null);
+
+  const [hydrated, setHydrated] = useState(false);
+  const [connecting, setConnecting] = useState(true);
+  const [connected, setConnected] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const guacBase = useMemo(() => {
+    // must be like "localhost:8080/guacamole"
+    return process.env.NEXT_PUBLIC_GUACAMOLE_URL || 'localhost:8080/guacamole';
   }, []);
 
+  useEffect(() => setHydrated(true), []);
+
   useEffect(() => {
-    const resolveParams = async () => {
-      const resolvedParams = await params;
-      setConnectionId(resolvedParams.id);
+    if (hydrated && !isAuthenticated) router.push('/');
+  }, [hydrated, isAuthenticated, router]);
+
+  useEffect(() => {
+    if (!hydrated || !isAuthenticated || !user?.authToken || !displayRef.current || !wrapRef.current) return;
+
+    let ro: ResizeObserver | null = null;
+    let cancelled = false;
+
+    const getContainerSize = () => {
+      const el = wrapRef.current!;
+      const w = Math.max(1, Math.floor(el.clientWidth));
+      const h = Math.max(1, Math.floor(el.clientHeight));
+      return { w, h };
     };
-    resolveParams();
-  }, [params]);
 
-  useEffect(() => {
-    if (!isHydrated) return;
+    const applyScaleToFit = () => {
+      const client = clientRef.current;
+      if (!client) return;
+      const display = client.getDisplay();
 
-    if (!isAuthenticated || !user) {
-      router.push('/');
-      return;
-    }
+      const dw = display.getWidth?.() ?? 0;
+      const dh = display.getHeight?.() ?? 0;
+      if (!dw || !dh) return;
 
-    if (!connectionId) return;
+      const { w, h } = getContainerSize();
+      const scale = Math.min(w / dw, h / dh);
 
-    const token = user.authToken;
-    const dataSource = user.dataSource;
+      // Scale is purely visual (does not change remote resolution) [web:4]
+      display.scale(scale); // [web:4]
+    };
 
-    // Initialize Guacamole client
-    const initGuacamole = async () => {
-      try {
-        // Determine protocol and host
-        const guacamoleHost = process.env.NEXT_PUBLIC_GUACAMOLE_URL || '192.168.1.25';
+    const sendSize = () => {
+      const client = clientRef.current;
+      if (!client) return;
+      const { w, h } = getContainerSize();
+      client.sendSize(w, h);
+    };
 
-        // Use wss:// (secure WebSocket) as the working Guacamole client does
-        const wsUrl = `wss://${guacamoleHost}/websocket-tunnel`;
+    const connect = () => {
+      setConnecting(true);
+      setConnected(false);
+      setErr(null);
 
-        console.log('Connecting to:', wsUrl);
+      const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const tunnelURL = `${wsProto}//${guacBase}/websocket-tunnel`;
 
-        // Create WebSocket tunnel using the imported Guacamole library
-        const tunnel = new Guacamole.WebSocketTunnel(wsUrl);
+      // IMPORTANT: do NOT put query params in tunnelURL.
+      const tunnel = new (Guacamole as any).WebSocketTunnel(tunnelURL);
 
-        // Create Guacamole client
-        const client = new Guacamole.Client(tunnel);
-        guacClientRef.current = client;
+      tunnel.onerror = (status: any) => {
+        if (cancelled) return;
+        console.error('❌ Tunnel error:', status);
+        setErr(`Tunnel error (${status?.code ?? 'unknown'})`);
+      };
 
-        // Get display element
-        const display = client.getDisplay();
+      const client = new (Guacamole as any).Client(tunnel);
+      clientRef.current = client;
 
-        if (displayRef.current) {
-          displayRef.current.innerHTML = '';
-          displayRef.current.appendChild(display.getElement());
+      const display = client.getDisplay();
+      displayRef.current!.innerHTML = '';
+      displayRef.current!.appendChild(display.getElement());
 
-          // Style the display
-          const element = display.getElement();
-          element.style.margin = 'auto';
+      // When display size changes, rescale to fit [web:4]
+      display.onresize = () => {
+        applyScaleToFit(); // [web:4]
+      };
+
+      client.onstatechange = (state: number) => {
+        // 3 = CONNECTED, 5 = DISCONNECTED
+        if (cancelled) return;
+
+        if (state === 3) {
+          setConnecting(false);
+          setConnected(true);
+          setErr(null);
+
+          // Immediately sync size + scale (fullscreen “fix” without fullscreen)
+          sendSize();
+          // wait 1 frame so display width/height is known
+          requestAnimationFrame(() => applyScaleToFit());
+        } else if (state === 5) {
+          setConnecting(false);
+          setConnected(false);
+          setErr((prev) => prev ?? 'Disconnected');
+        } else {
+          setConnecting(true);
         }
+      };
 
-        // Mouse handling
-        const mouse = new Guacamole.Mouse(display.getElement());
-        mouse.onmousedown =
-          mouse.onmouseup =
-          mouse.onmousemove =
-            (mouseState: any) => {
-              client.sendMouseState(mouseState);
-            };
+      client.onerror = (e: any) => {
+        if (cancelled) return;
+        console.error('❌ Client error:', e);
+        setErr(e?.message || 'Client error');
+        setConnecting(false);
+        setConnected(false);
+      };
 
-        // Touch handling for mobile
-        const touch = new Guacamole.Mouse.Touchscreen(display.getElement());
-        touch.onmousedown =
-          touch.onmouseup =
-          touch.onmousemove =
-            (mouseState: any) => {
-              client.sendMouseState(mouseState);
-            };
+      // Build the connect string and PASS IT to connect().
+      // This prevents the “?undefined” URL bug. [web:11][web:10]
+      const { w, h } = getContainerSize();
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-        // Keyboard handling
-        const keyboard = new Guacamole.Keyboard(document);
-        keyboard.onkeydown = (keysym: number) => {
-          client.sendKeyEvent(1, keysym);
-        };
-        keyboard.onkeyup = (keysym: number) => {
-          client.sendKeyEvent(0, keysym);
-        };
+      const qs = new URLSearchParams();
+      qs.set('token', user.authToken);
+      qs.set('GUAC_DATA_SOURCE', user.dataSource || 'mysql');
+      qs.set('GUAC_ID', id);
+      qs.set('GUAC_TYPE', 'c');
+      qs.set('GUAC_WIDTH', String(w));
+      qs.set('GUAC_HEIGHT', String(h));
+      qs.set('GUAC_DPI', String(Math.round(96 * (window.devicePixelRatio || 1))));
+      qs.set('GUAC_TIMEZONE', tz);
 
-        // Handle connection state changes
-        client.onstatechange = (state: number) => {
-          console.log('Guacamole Client State:', state);
-          if (state === 3) {
-            // CONNECTED (Guacamole.Client.CONNECTED)
-            setIsConnected(true);
-            setIsConnecting(false);
-            setError(null);
-          } else if (state === 5) {
-            // DISCONNECTED
-            setIsConnected(false);
-            setIsConnecting(false);
-            if (!error) setError('Connection closed');
-          } else if (state === 1) {
-            // CONNECTING
-            setIsConnecting(true);
-          }
-        };
+      // Match official client capability style (multiple values)
+      qs.append('GUAC_AUDIO', 'audio/L8');
+      qs.append('GUAC_AUDIO', 'audio/L16');
+      qs.append('GUAC_IMAGE', 'image/jpeg');
+      qs.append('GUAC_IMAGE', 'image/png');
+      qs.append('GUAC_IMAGE', 'image/webp');
 
-        // Handle errors
-        client.onerror = (err: any) => {
-          console.error('Guacamole client error:', err);
-          setError(`Connection error: ${err.message || 'Check terminal/logs'}`);
-          setIsConnected(false);
-          setIsConnecting(false);
-        };
+      client.connect(qs.toString()); // [web:10]
 
-        // Get timezone
-        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const mouse = new (Guacamole as any).Mouse(display.getElement());
+      mouse.onmousedown = mouse.onmouseup = mouse.onmousemove = (ms: any) => client.sendMouseState(ms);
 
-        // Build connection params matching EXACTLY what the working Guacamole client sends
-        // Use URLSearchParams to properly handle multiple values for GUAC_AUDIO and GUAC_IMAGE
-        const params = new URLSearchParams();
-        params.append('token', token);
-        params.append('GUAC_DATA_SOURCE', dataSource);
-        params.append('GUAC_ID', connectionId);
-        params.append('GUAC_TYPE', 'c');
-        params.append('GUAC_WIDTH', String(Math.floor(window.innerWidth)));
-        params.append('GUAC_HEIGHT', String(Math.floor(window.innerHeight)));
-        params.append('GUAC_DPI', '96');
-        params.append('GUAC_TIMEZONE', timezone);
-        params.append('GUAC_AUDIO', 'audio/L8');
-        params.append('GUAC_AUDIO', 'audio/L16');
-        params.append('GUAC_IMAGE', 'image/jpeg');
-        params.append('GUAC_IMAGE', 'image/png');
-        params.append('GUAC_IMAGE', 'image/webp');
+      const keyboard = new (Guacamole as any).Keyboard(document);
+      keyboard.onkeydown = (keysym: number) => {
+        client.sendKeyEvent(1, keysym);
+        return true;
+      };
+      keyboard.onkeyup = (keysym: number) => client.sendKeyEvent(0, keysym);
+      keyboardRef.current = keyboard;
 
-        const connectionParams = params.toString();
-
-        console.log('Connecting with params:', connectionParams);
-
-        // Connect
-        client.connect(connectionParams);
-
-        // Handle window resize
-        const handleResize = () => {
-          if (client && display) {
-            client.sendSize(window.innerWidth, window.innerHeight);
-          }
-        };
-        window.addEventListener('resize', handleResize);
-
-        return () => {
-          window.removeEventListener('resize', handleResize);
-        };
-      } catch (err: any) {
-        console.error('Guacamole initialization error:', err);
-        setError(`Failed to initialize connection: ${err.message}`);
-        setIsConnecting(false);
-      }
+      ro = new ResizeObserver(() => {
+        if (!clientRef.current) return;
+        sendSize();
+        requestAnimationFrame(() => applyScaleToFit());
+      });
+      ro.observe(wrapRef.current!);
     };
 
-    // Initialize immediately since we're importing the library
-    initGuacamole();
+    connect();
 
     return () => {
-      // Cleanup
-      if (guacClientRef.current) {
-        try {
-          guacClientRef.current.disconnect();
-        } catch (e) {
-          console.error('Error disconnecting:', e);
-        }
-      }
+      cancelled = true;
+      try {
+        ro?.disconnect();
+      } catch {}
+      try {
+        keyboardRef.current?.reset?.();
+      } catch {}
+      try {
+        clientRef.current?.disconnect?.();
+      } catch {}
+      clientRef.current = null;
     };
-  }, [isAuthenticated, user, router, connectionId]);
+  }, [hydrated, isAuthenticated, user?.authToken, user?.dataSource, id, guacBase]);
 
-  const toggleFullscreen = () => {
+  const toggleFullscreen = async () => {
+    const el = wrapRef.current;
+    if (!el) return;
+
     if (!document.fullscreenElement) {
-      displayRef.current?.requestFullscreen();
-      setIsFullscreen(true);
+      await el.requestFullscreen();
+      setFullscreen(true);
     } else {
-      document.exitFullscreen();
-      setIsFullscreen(false);
+      await document.exitFullscreen();
+      setFullscreen(false);
     }
   };
 
-  const handleDisconnect = () => {
-    if (guacClientRef.current) {
-      guacClientRef.current.disconnect();
-    }
-    window.close();
+  const disconnect = () => {
+    try {
+      clientRef.current?.disconnect?.();
+    } catch {}
+    router.push('/dashboard');
   };
 
-  if (!isHydrated || !isAuthenticated) return null;
+  if (!hydrated) return null;
 
   return (
-    <div className="h-screen w-screen bg-zinc-950 flex flex-col overflow-hidden">
-      {/* Header */}
-      <div className="bg-zinc-900 border-b border-zinc-800 px-4 py-2 flex items-center justify-between flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <ShieldCheck className="w-5 h-5 text-primary" />
-          <div>
-            <p className="text-sm font-semibold text-zinc-100">Remote Connection</p>
-            <p className="text-xs text-zinc-500">
-              {isConnecting ? (
-                <span className="text-yellow-500 flex items-center gap-1">
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                  Connecting...
-                </span>
-              ) : isConnected ? (
-                <span className="text-green-500">● Connected</span>
-              ) : (
-                <span className="text-red-500">● Disconnected</span>
-              )}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={toggleFullscreen}
-            className="text-zinc-400 hover:text-zinc-100"
-            disabled={!isConnected}
-          >
-            {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleDisconnect}
-            className="text-zinc-400 hover:text-red-400"
-          >
-            <LogOut className="w-4 h-4" />
-            <span className="ml-2 text-xs">Disconnect</span>
+    <div className="h-screen w-screen bg-black flex flex-col">
+      <div className="h-12 px-3 flex items-center justify-between bg-zinc-900 border-b border-zinc-800">
+        <Button variant="ghost" size="sm" onClick={disconnect} className="text-zinc-300">
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Disconnect
+        </Button>
+
+        <div className="flex items-center gap-3 text-xs text-zinc-300">
+          {connecting && !err && <span>Connecting…</span>}
+          {connected && !err && <span>Connected</span>}
+          {err && <span className="text-red-400">{err}</span>}
+
+          <Button variant="ghost" size="sm" onClick={toggleFullscreen} className="text-zinc-300">
+            {fullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
           </Button>
         </div>
       </div>
 
-      {/* Error Display */}
-      {error && (
-        <div className="bg-red-500/10 border-b border-red-500/20 px-4 py-3 flex-shrink-0">
-          <p className="text-sm text-red-400">{error}</p>
-        </div>
-      )}
-
-      {/* Display Container */}
-      <div
-        ref={displayRef}
-        className="flex-1 bg-black overflow-auto"
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          cursor: isConnected ? 'none' : 'default',
-        }}
-      >
-        {isConnecting && !error && (
-          <div className="text-center space-y-4">
-            <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto" />
-            <p className="text-zinc-400">Establishing secure connection...</p>
-          </div>
-        )}
+      {/* key layout fix: min-h-0 + overflow-hidden so the flex child gets real height */}
+      <div ref={wrapRef} className="flex-1 min-h-0 overflow-hidden">
+        <div ref={displayRef} className="w-full h-full" />
       </div>
     </div>
   );

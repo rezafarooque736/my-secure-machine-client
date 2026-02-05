@@ -1,33 +1,33 @@
-import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
-
-const GUACAMOLE_URL = process.env.GUACAMOLE_API_URL || 'http://guacamole-api:8080/guacamole';
+const GUACAMOLE_URL = process.env.GUACAMOLE_API_URL || 'http://localhost:8080/guacamole';
 
 export async function proxyRequest(
   method: string,
   path: string,
   body: any = null,
   headers: Record<string, string> = {},
-  params: Record<string, string> = {}
-): Promise<AxiosResponse> {
-  const url = `${GUACAMOLE_URL}/api/${path}`;
-  
-  // Strip host and other problematic headers
-  const { host, ...safeHeaders } = headers;
+  params: Record<string, string> = {},
+): Promise<Response> {
+  const url = new URL(`${GUACAMOLE_URL}/api/${path}`);
 
-  const config: AxiosRequestConfig = {
+  // Add query parameters
+  Object.entries(params).forEach(([key, value]) => {
+    url.searchParams.append(key, value);
+  });
+
+  const fetchOptions: RequestInit = {
     method,
-    url,
-    data: body,
-    params,
     headers: {
-      ...safeHeaders,
-      'Accept': 'application/json',
+      Accept: 'application/json',
+      ...headers,
     },
-    validateStatus: () => true, // Let the caller handle status codes
   };
 
+  if (body && method !== 'GET') {
+    fetchOptions.body = typeof body === 'string' ? body : JSON.stringify(body);
+  }
+
   try {
-    const response = await axios(config);
+    const response = await fetch(url.toString(), fetchOptions);
     return response;
   } catch (error: any) {
     console.error(`Proxy error [${method}] ${path}:`, error.message);

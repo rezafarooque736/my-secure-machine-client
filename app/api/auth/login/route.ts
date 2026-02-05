@@ -1,69 +1,67 @@
 import { NextRequest, NextResponse } from 'next/server';
-import axios from 'axios';
-import { z } from 'zod';
-import https from 'https';
 
-const loginSchema = z.object({
-  username: z.string().min(1),
-  password: z.string().min(1),
-});
+const GUACAMOLE_URL = process.env.GUACAMOLE_API_URL || 'http://localhost:8080/guacamole';
 
-// Create axios instance that accepts self-signed certificates
-const httpsAgent = new https.Agent({
-  rejectUnauthorized: false, // For self-signed certificates
-});
-
-export async function POST(req: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    const body = await req.json();
-    const validated = loginSchema.parse(body);
-    const { username, password } = validated;
+    const body = await request.json();
+    const { username, password } = body;
 
-    const GUACAMOLE_URL = process.env.GUACAMOLE_API_URL || 'https://192.168.1.25';
+    if (!username || !password) {
+      return NextResponse.json({ error: 'Username and password are required' }, { status: 400 });
+    }
 
-    // Prepare form data as URL-encoded string
+    console.log('🔐 Login attempt for user:', username);
+
+    // Create form-urlencoded data
     const formData = new URLSearchParams();
     formData.append('username', username);
     formData.append('password', password);
 
-    // Call Guacamole API to get token
-    const response = await axios({
-      method: 'post',
-      url: `${GUACAMOLE_URL}/api/tokens`,
+    // Make direct fetch call to Guacamole
+    const response = await fetch(`${GUACAMOLE_URL}/api/tokens`, {
+      method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
-      data: formData.toString(),
-      httpsAgent, // Accept self-signed certificates
-      validateStatus: () => true, // Don't throw on any status
+      body: formData.toString(),
     });
 
-    if (response.status === 200 && response.data.authToken) {
-      const data = response.data;
+    console.log('📡 Guacamole API response status:', response.status);
 
-      // Determine role - you can customize this logic
-      const role = username === 'guacadmin' ? 'admin' : 'user';
-
-      return NextResponse.json(
-        {
-          username,
-          authToken: data.authToken,
-          dataSource: data.dataSource || 'mysql',
-          availableDataSources: data.availableDataSources || ['mysql'],
-          role,
-        },
-        { status: 200 },
-      );
-    } else {
-      return NextResponse.json({ error: 'Invalid username or password' }, { status: 401 });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => null);
+      console.error('❌ Login failed:', response.status, errorData);
+      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
+
+    const data = await response.json();
+    const { authToken, username: user, dataSource, availableDataSources } = data;
+
+    if (!authToken) {
+      console.error('❌ No auth token in response');
+      return NextResponse.json({ error: 'Authentication failed - no token received' }, { status: 401 });
+    }
+
+    console.log('✅ Login successful for user:', user);
+
+    return NextResponse.json({
+      authToken,
+      username: user,
+      dataSource: dataSource || 'mysql',
+      availableDataSources: availableDataSources || ['mysql'],
+      role: user === 'guacadmin' ? 'admin' : 'user',
+    });
   } catch (error: any) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Validation failed', details: error.issues }, { status: 400 });
-    }
+    console.error('💥 Login error:', error.message);
+    console.error('Stack:', error.stack);
 
-    console.error('Login error:', error.message);
-
-    return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: 'Internal server error during authentication',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      },
+      { status: 500 },
+    );
   }
 }

@@ -1,40 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
-import axios from 'axios';
-import https from 'https';
+import { proxyRequest } from '@/lib/proxy';
 
-// Create axios instance that accepts self-signed certificates
-const httpsAgent = new https.Agent({
-  rejectUnauthorized: false,
-});
-
-export async function DELETE(req: NextRequest) {
+export async function DELETE(request: NextRequest) {
   try {
-    // Extract token from request body or query params
-    const url = new URL(req.url);
-    const token = url.searchParams.get('token');
+    const { searchParams } = new URL(request.url);
+    const token = searchParams.get('token');
 
     if (!token) {
       return NextResponse.json({ error: 'Token is required' }, { status: 400 });
     }
 
-    const GUACAMOLE_URL = process.env.GUACAMOLE_API_URL || 'https://192.168.1.25';
+    console.log('🚪 Logout request for token:', token.substring(0, 10) + '...');
 
-    // Call Guacamole API to delete/invalidate token (logout)
-    const response = await axios({
-      method: 'delete',
-      url: `${GUACAMOLE_URL}/api/tokens/${token}`,
-      params: { token }, // Token in query parameter
-      httpsAgent,
-      validateStatus: () => true,
-    });
+    // Call Guacamole logout endpoint
+    const response = await proxyRequest('DELETE', `tokens/${token}`, null, {}, {});
+
+    console.log('📡 Logout response status:', response.status);
 
     if (response.status === 204 || response.status === 200) {
-      return NextResponse.json({ message: 'Logged out successfully' }, { status: 200 });
-    } else {
-      return NextResponse.json({ error: 'Logout failed' }, { status: response.status });
+      console.log('✅ Logout successful');
+      return NextResponse.json({ message: 'Logged out successfully' });
     }
+
+    return NextResponse.json({ error: 'Logout failed' }, { status: response.status || 500 });
   } catch (error: any) {
-    console.error('Logout error:', error.message);
-    return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
+    console.error('💥 Logout error:', error.message);
+    return NextResponse.json({ error: 'Internal server error during logout' }, { status: 500 });
   }
 }
