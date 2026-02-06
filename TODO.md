@@ -6,67 +6,77 @@ steps to run the project
 4. run the prisma seed - pnpm run db:seed
 5. run the nextjs app - pnpm run dev
 
-
 TODO:
-1. add user to group request, only admin can add/remove someone to any group.
-    model GroupRequest {
-     id          String             @id @default(cuid())
-     userId      String
-     groupName   String             @db.VarChar(128)
-     reason      String             @db.Text
-     status      GroupRequestStatus @default(PENDING)
-     requestedAt DateTime           @default(now())
-     processedAt DateTime?
-     processedBy String?
-     comments    String?            @db.Text
-     user        PortalUser         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-     @@index([userId])
-     @@index([status])
-     @@index([requestedAt])
-     @@map("group_requests")
-   }
-    enum GroupRequestStatus {
-      PENDING
-      APPROVED
-      REJECTED
-    }
+Here are features you can implement later:
+Security & Authentication
 
-2. ✅ failed login history
-    model FailedLogin {
-     id                  String      @id @default(cuid())
-     email               String      @db.VarChar(255)
-     reason              String      @db.VarChar(255)
-     ipAddress           String?     @db.VarChar(45)
-     userAgent           String?     @db.Text
-     attemptCount        Int         @default(1)
-     consecutiveFailures Int         @default(1)
-     timestamp           DateTime    @default(now())
-     portalUser          PortalUser? @relation(fields: [portalUserId], references: [id])
-     portalUserId        String?
+    Multi-Factor Authentication (MFA/2FA) - Add TOTP or SMS-based 2FA
 
-     @@index([email])
-     @@index([ipAddress])
-     @@index([timestamp])
-     @@map("failed_logins")
-   }
-3. ✅ all audit logs
-   implement these in audit logs db
-    model AuditLog {
-     id        String     @id @default(cuid())
-     userId    String
-     action    String     @db.VarChar(255)
-     resource  String?    @db.VarChar(255)
-     details   String?    @db.Text
-     ipAddress String?    @db.VarChar(45)
-     userAgent String?    @db.Text
-     createdAt DateTime   @default(now())
-     user      PortalUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+    Session timeout warnings - Alert users before auto-logout
 
-     @@index([userId])
-     @@index([action])
-     @@index([createdAt])
-     @@map("audit_logs")
-    }
+    IP whitelisting - Restrict access by IP ranges
 
-4. 
+    OAuth/SAML integration - Corporate SSO support
+
+    Biometric authentication - Fingerprint/Face ID for mobile
+
+User Management
+
+    User groups and roles - Admin, Power User, Guest roles
+
+    Permission management - Fine-grained access control per connection
+
+    User profile page - Avatar, preferences, password change
+
+    Activity dashboard - Personal usage statistics
+
+    Connection favorites - Bookmark frequently used connections
+
+Monitoring & Analytics
+
+    Real-time usage dashboard - Live active sessions
+
+    Usage reports - Daily/weekly/monthly reports
+
+    Connection quality metrics - Latency, bandwidth usage
+
+    Alert system - Email/Slack notifications for issues
+
+    Audit trail - Comprehensive action logs with export
+
+Connection Features
+
+    Connection sharing - Share sessions with other users
+
+    File transfer - Upload/download files to/from remote desktop
+
+    Clipboard sync - Copy-paste between local and remote
+
+    Multi-monitor support - Span across multiple displays
+
+    Connection templates - Pre-configured connection settings
+
+Performance & Scaling
+
+    Load balancing - Distribute connections across multiple guacd instances
+
+    Connection pooling - Reuse connections for better performance
+
+    Bandwidth optimization - Adaptive quality based on connection
+
+    Caching strategy - Cache connection metadata
+
+    CDN integration - Serve static assets from CDN
+
+Administration
+
+    Admin panel - Manage users, connections, settings
+
+    Bulk operations - Import/export connections via CSV
+
+    Health monitoring - System status dashboard
+
+    Backup/restore - Database backup scheduling
+
+    License management - Track and manage licenses

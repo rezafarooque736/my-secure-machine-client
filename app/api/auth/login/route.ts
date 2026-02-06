@@ -1,17 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
+import { prisma } from '@/lib/prisma';
 
 const GUACAMOLE_URL = process.env.GUACAMOLE_API_URL || 'http://localhost:8080/guacamole';
 
+function getClientIp(request: NextRequest): string {
+  return (
+    request.headers.get('x-forwarded-for')?.split(',')[0] || request.headers.get('x-real-ip') || 'unknown'
+  );
+}
+
 export async function POST(request: NextRequest) {
+  const ipAddress = getClientIp(request);
+  const userAgent = request.headers.get('user-agent') || 'unknown';
+
   try {
     const body = await request.json();
     const { username, password } = body;
 
     if (!username || !password) {
+      await logger.logAuthFailure(username || 'unknown', ipAddress, 'Missing credentials');
       return NextResponse.json({ error: 'Username and password are required' }, { status: 400 });
     }
 
-    console.log('🔐 Login attempt for user:', username);
+    console.log('🔐 Login attempt for user:', username, 'from IP:', ipAddress);
 
     // Create form-urlencoded data
     const formData = new URLSearchParams();
@@ -27,11 +39,20 @@ export async function POST(request: NextRequest) {
       body: formData.toString(),
     });
 
-    console.log('📡 Guacamole API response status:', response.status);
-
     if (!response.ok) {
-      const errorData = await response.json().catch(() => null);
-      console.error('❌ Login failed:', response.status, errorData);
+      // Log failed attempt
+      await logger.logAuthFailure(username, ipAddress, 'Invalid credentials');
+
+      await prisma.loginAttempt.create({
+        data: {
+          username,
+          success: false,
+          ipAddress,
+          userAgent,
+          reason: 'Invalid credentials',
+        },
+      });
+
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
 
@@ -39,9 +60,21 @@ export async function POST(request: NextRequest) {
     const { authToken, username: user, dataSource, availableDataSources } = data;
 
     if (!authToken) {
-      console.error('❌ No auth token in response');
+      await logger.logAuthFailure(username, ipAddress, 'No token received');
       return NextResponse.json({ error: 'Authentication failed - no token received' }, { status: 401 });
     }
+
+    // Log successful login
+    await logger.logAuthSuccess(user, ipAddress);
+
+    await prisma.loginAttempt.create({
+      data: {
+        username: user,
+        success: true,
+        ipAddress,
+        userAgent,
+      },
+    });
 
     console.log('✅ Login successful for user:', user);
 
@@ -54,7 +87,13 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: any) {
     console.error('💥 Login error:', error.message);
-    console.error('Stack:', error.stack);
+    await logger.log({
+      level: 'ERROR',
+      category: 'AUTH',
+      message: 'Login system error',
+      ipAddress,
+      metadata: { error: error.message },
+    });
 
     return NextResponse.json(
       {

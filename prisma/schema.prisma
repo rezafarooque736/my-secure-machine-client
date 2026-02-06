@@ -1,0 +1,56 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model ActivityLog {
+  id        Int      @id @default(autoincrement())
+  level     String // INFO, WARN, ERROR, SUCCESS
+  category  String // AUTH, CONNECTION, SYSTEM, USER_ACTION
+  message   String
+  username  String?
+  ipAddress String?
+  metadata  String? // JSON string
+  timestamp DateTime @default(now())
+
+  @@index([username])
+  @@index([category])
+  @@index([timestamp])
+  @@map("activity_logs")
+}
+
+model ConnectionSession {
+  id              Int       @id @default(autoincrement())
+  username        String
+  connectionId    String
+  connectionName  String
+  protocol        String
+  startTime       DateTime  @default(now())
+  endTime         DateTime?
+  durationMinutes Int?
+  ipAddress       String?
+
+  @@index([username])
+  @@index([connectionId])
+  @@index([startTime])
+  @@map("connection_sessions")
+}
+
+model LoginAttempt {
+  id        Int      @id @default(autoincrement())
+  username  String
+  success   Boolean
+  ipAddress String?
+  userAgent String?
+  timestamp DateTime @default(now())
+  reason    String? // failure reason
+
+  @@index([username])
+  @@index([ipAddress])
+  @@index([timestamp])
+  @@map("login_attempts")
+}
