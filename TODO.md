@@ -9,6 +9,19 @@ steps to run the project
 TODO:
 
 Here are features you can implement later:
+UI/UX Enhancements
+Dark/Light mode toggle - User theme preferences, default light mode
+Connection thumbnails - Live preview of active connections
+Quick connect - Recent connections on dashboard
+Search and filter - Find connections quickly
+
+Mobile & Accessibility
+Progressive Web App (PWA) - Install as mobile or desktop app
+Touch optimization - Better mobile/tablet experience
+Screen reader support - WCAG compliance
+Keyboard navigation - Full keyboard accessibility
+Multi-language support - i18n for global users - user will have option to select language from settings and login page - preferably hindi, english, telugu, tamil, malyalam, bengali, urdu, punjabi and kannada.
+
 Security & Authentication
 
     Multi-Factor Authentication (MFA/2FA) - Add TOTP or SMS-based 2FA

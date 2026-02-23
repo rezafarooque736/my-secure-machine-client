@@ -5,7 +5,7 @@ services:
     image: consol/ubuntu-xfce-vnc:latest
     restart: unless-stopped
     networks:
-      - guacamole-network
+      - secure-machine-network
     ports:
       - '5901:5901' # VNC port (optional, for direct VNC client access)
       - '6901:6901' # noVNC port (optional, for browser access)
@@ -22,7 +22,7 @@ services:
     image: guacamole/guacd:1.6.0
     restart: unless-stopped
     networks:
-      - guacamole-network
+      - secure-machine-network
     volumes:
       - ./drive:/drive:rw
       - ./record:/record:rw
@@ -34,12 +34,12 @@ services:
     image: mariadb:11.4
     restart: unless-stopped
     networks:
-      - guacamole-network
+      - secure-machine-network
     environment:
-      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-GuacamoleRootPassword}
-      MARIADB_DATABASE: ${DB_NAME:-guacamole_db}
-      MARIADB_USER: ${DB_USER:-guacamole_user}
-      MARIADB_PASSWORD: ${DB_PASSWORD:-GuacamoleUserPassword}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MARIADB_DATABASE: ${DB_NAME}
+      MARIADB_USER: ${DB_USER}
+      MARIADB_PASSWORD: ${DB_PASSWORD}
       MARIADB_AUTO_UPGRADE: '1'
     volumes:
       - db-data:/var/lib/mysql
@@ -52,12 +52,12 @@ services:
       timeout: 5s
       retries: 5
 
-  guacamole-api:
-    container_name: guacamole-api
+  secure-machine-api:
+    container_name: secure-machine-api
     image: guacamole/guacamole:1.6.0
     restart: unless-stopped
     networks:
-      - guacamole-network
+      - secure-machine-network
     ports:
       - '8080:8080'
     environment:
@@ -67,11 +67,11 @@ services:
       GUACD_PORT: '4822'
 
       # Database Configuration
-      MYSQL_HOSTNAME: ${DB_HOST:-guacdb}
-      MYSQL_PORT: ${DB_PORT:-3306}
-      MYSQL_DATABASE: ${DB_NAME:-guacamole_db}
-      MYSQL_USER: ${DB_USER:-guacamole_user}
-      MYSQL_PASSWORD: ${DB_PASSWORD:-GuacamoleUserPassword}
+      MYSQL_HOSTNAME: ${DB_HOST}
+      MYSQL_PORT: ${DB_PORT}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
 
       # Application Configuration
       WEBAPP_CONTEXT: 'guacamole'
@@ -99,7 +99,7 @@ services:
       - ./drive:/drive:rw
       - ./record:/record:rw
     healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:8080/guacamole/']
+      test: ['CMD', 'curl', '-f', 'http://localhost:8080/guacamole/api/languages']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -112,21 +112,21 @@ services:
   #     dockerfile: Dockerfile
   #   restart: unless-stopped
   #   networks:
-  #     - guacamole-network
+  #     - secure-machine-network
   #   ports:
   #     - "3000:3000"
   #   environment:
   #     - NODE_ENV=production
   #     - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/guacamole_db
-  #     - GUACAMOLE_API_URL=http://guacamole-api:8080/guacamole
-  #     - GUACAMOLE_WEBSOCKET_URL=ws://guacamole-api:8080/guacamole/websocket-tunnel
+  #     - GUACAMOLE_API_URL=http://secure-machine-api:8080/guacamole
+  #     - GUACAMOLE_WEBSOCKET_URL=ws://secure-machine-api:8080/guacamole/websocket-tunnel
   #     - GUACAMOLE_API_USERNAME=${GUACAMOLE_API_USERNAME}
   #     - GUACAMOLE_API_PASSWORD=${GUACAMOLE_API_PASSWORD}
   #     - NEXT_PUBLIC_GUACAMOLE_URL=${NEXT_PUBLIC_GUACAMOLE_URL}
   #     - NEXT_PUBLIC_WEBSOCKET_URL=${NEXT_PUBLIC_WEBSOCKET_URL}
   #   depends_on:
   #     - guacdb
-  #     - guacamole-api
+  #     - secure-machine-api
 
 volumes:
   db-data:
@@ -135,5 +135,5 @@ volumes:
     driver: local
 
 networks:
-  guacamole-network:
+  secure-machine-network:
     driver: bridge

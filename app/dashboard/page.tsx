@@ -4,195 +4,340 @@ import { useEffect, useState } from 'react';
 import { useAuthStore } from '@/lib/store';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api-client';
-import { Card } from '@/components/ui/card';
-import { ShieldCheck, Monitor, LogOut, Activity, Sparkles } from 'lucide-react';
+import axios from 'axios';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Separator } from '@/components/ui/separator';
-import Image from 'next/image';
+import { Badge } from '@/components/ui/badge';
+import { Monitor, Activity, Clock, TrendingUp, Users, Shield, ArrowRight, Sparkles } from 'lucide-react';
+
+interface Connection {
+  identifier: string;
+  name: string;
+  protocol: string;
+  lastUsed?: string;
+}
+
+interface DashboardStats {
+  activeSessions: number;
+  totalUsage: string;
+  totalUsageMinutes: number;
+  connectionCount: number;
+  accountStatus: string;
+}
 
 export default function DashboardPage() {
-  const { user, logout, isAuthenticated } = useAuthStore();
+  const { user } = useAuthStore();
   const router = useRouter();
-  const [connections, setConnections] = useState<any[]>([]);
+  const [connections, setConnections] = useState<Connection[]>([]);
+  const [recentConnections, setRecentConnections] = useState<Connection[]>([]);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isHydrated, setIsHydrated] = useState(false);
-
-  useEffect(() => setIsHydrated(true), []);
 
   useEffect(() => {
-    if (isHydrated && !isAuthenticated) {
-      router.push('/');
-      return;
-    }
+    const fetchData = async () => {
+      if (!user) return;
 
-    if (isHydrated && isAuthenticated && user) {
-      const fetchData = async () => {
-        try {
-          const response = await api.get(`/session/data/${user.dataSource}/connections`);
-          const connectionsData = response.data;
-          const connectionsList = Object.keys(connectionsData)
-            .map((id) => ({ ...connectionsData[id], identifier: id }))
-            .filter((conn: any) => conn.name);
-          setConnections(connectionsList);
-        } catch (error) {
-          console.error('Failed to fetch connections', error);
-        } finally {
-          setLoading(false);
-        }
-      };
-      fetchData();
-    }
-  }, [isHydrated, isAuthenticated, router, user]);
+      try {
+        // Fetch connections
+        const connectionsResponse = await api.get(`/session/data/${user.dataSource}/connections`);
+        const connectionsData = connectionsResponse.data;
+        const connectionsList = Object.keys(connectionsData)
+          .map((id) => ({ ...connectionsData[id], identifier: id }))
+          .filter((conn: any) => conn.name);
 
-  const handleLogout = () => {
-    logout();
-    router.push('/');
-  };
+        setConnections(connectionsList);
 
-  const handleConnectionClick = (connectionId: string, connectionName: string) => {
+        // Fetch recent connections from API
+        const recentResponse = await axios.get('/api/connections/recent', {
+          params: {
+            token: user.authToken,
+            dataSource: user.dataSource,
+            limit: 3,
+          },
+        });
+        setRecentConnections(recentResponse.data);
+
+        // Fetch dashboard statistics
+        const statsResponse = await axios.get('/api/stats/dashboard', {
+          params: {
+            token: user.authToken,
+            dataSource: user.dataSource,
+            username: user.username,
+          },
+        });
+        setStats(statsResponse.data);
+      } catch (error) {
+        console.error('Failed to fetch dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [user]);
+
+  const handleConnectionClick = (connectionId: string) => {
     window.open(`/connection/${connectionId}`, '_blank', 'noopener,noreferrer');
   };
 
-  if (!isHydrated || !isAuthenticated) return null;
-
-  const appName = process.env.NEXT_PUBLIC_APP_NAME || 'Guacamole Portal';
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950 text-zinc-100">
-      {/* Background Effects */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-purple-500/5 rounded-full blur-3xl" />
+    <div className="space-y-8 animate-in fade-in duration-500">
+      {/* Welcome Section */}
+      <div className="space-y-2">
+        <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+          Welcome back, <span className="text-primary">{user?.username}</span>
+          <Sparkles className="h-6 w-6 text-yellow-500" />
+        </h1>
+        <p className="text-muted-foreground text-lg">
+          Here&apos;s what&apos;s happening with your remote connections today.
+        </p>
       </div>
 
-      {/* Navigation */}
-      <nav className="relative z-10 border-b border-zinc-800/50 bg-zinc-900/30 backdrop-blur-xl sticky top-0">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="mx-auto flex items-center justify-center">
-              <Image
-                src="/railtel_logo_light.svg"
-                priority
-                alt="RailTel Logo"
-                width={30}
-                height={30}
-                className="relative"
-              />
-            </div>
-            <div>
-              <span className="font-bold text-xl tracking-tight block leading-none">{appName}</span>
-              <span className="text-xs text-zinc-500 flex items-center gap-1 mt-1">
-                <Activity className="w-3 h-3" />
-                Remote Desktop Gateway
-              </span>
-            </div>
-          </div>
-          <div className="flex items-center gap-6">
-            <div className="hidden sm:block">
-              <div className="flex items-center gap-3 px-4 py-2 bg-zinc-800/30 rounded-lg border border-zinc-700/30">
-                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-                <div className="text-sm">
-                  <p className="text-zinc-400 text-xs">Logged in as</p>
-                  <p className="text-zinc-100 font-semibold">{user?.username}</p>
-                </div>
-              </div>
-            </div>
-
-            <Separator orientation="vertical" className="h-10 bg-zinc-800" />
-            {user?.role === 'admin' && (
+      {/* Stats Grid */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card className="hover:shadow-lg transition-shadow">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Connections</CardTitle>
+            <Monitor className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <Skeleton className="h-8 w-20" />
+            ) : (
               <>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => router.push('/audit-logs')}
-                  className="text-zinc-400 hover:text-blue-400 hover:bg-blue-400/10 gap-2"
-                >
-                  <Activity className="w-4 h-4" />
-                  <span className="text-xs uppercase font-bold tracking-wider">Audit Logs</span>
-                </Button>
-                <Separator orientation="vertical" className="h-8 bg-zinc-900" />
+                <div className="text-2xl font-bold">{connections.length}</div>
+                <p className="text-xs text-muted-foreground">Available remote desktops</p>
               </>
             )}
+          </CardContent>
+        </Card>
 
-            <Separator orientation="vertical" className="h-10 bg-zinc-800" />
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleLogout}
-              className="text-zinc-400 hover:text-red-400 hover:bg-red-400/10 gap-2 transition-all"
-            >
-              <LogOut className="w-4 h-4" />
-              <span className="font-semibold">Logout</span>
-            </Button>
-          </div>
-        </div>
-      </nav>
+        <Card className="hover:shadow-lg transition-shadow">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Active Sessions</CardTitle>
+            <Activity className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <Skeleton className="h-8 w-20" />
+            ) : (
+              <>
+                <div className="text-2xl font-bold">{stats?.activeSessions || 0}</div>
+                <p className="text-xs text-muted-foreground">Currently connected</p>
+              </>
+            )}
+          </CardContent>
+        </Card>
 
-      {/* Main Content */}
-      <main className="relative z-10 max-w-7xl mx-auto px-6 py-12 space-y-10">
-        <div className="space-y-3">
-          <h2 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-            <Sparkles className="w-8 h-8 text-blue-400" />
-            Your Connections
-          </h2>
-          <p className="text-zinc-400 text-lg">
-            Select a connection to establish a secure remote desktop session
-          </p>
-        </div>
+        <Card className="hover:shadow-lg transition-shadow">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Usage</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <Skeleton className="h-8 w-20" />
+            ) : (
+              <>
+                <div className="text-2xl font-bold">{stats?.totalUsage || '0h'}</div>
+                <p className="text-xs text-muted-foreground">This month</p>
+              </>
+            )}
+          </CardContent>
+        </Card>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {loading ? (
-            [1, 2, 3, 4, 5, 6].map((i) => <Skeleton key={i} className="h-48 rounded-2xl bg-zinc-800/30" />)
-          ) : connections.length > 0 ? (
-            connections.map((conn) => (
-              <Card
-                key={conn.identifier}
-                className="bg-zinc-900/30 border-zinc-800/50 hover:border-blue-500/50 group transition-all duration-300 rounded-2xl cursor-pointer hover:shadow-2xl hover:shadow-blue-500/10 hover:-translate-y-1"
-                onClick={() => handleConnectionClick(conn.identifier, conn.name)}
-              >
-                <div className="p-6 h-full flex flex-col justify-between">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <h3 className="text-xl font-bold text-zinc-100 group-hover:text-blue-400 transition-colors">
-                        {conn.name}
-                      </h3>
-                      <p className="text-xs font-mono text-zinc-500 uppercase tracking-wider mt-2 flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 bg-green-400 rounded-full" />
-                        {conn.protocol} · Secure
-                      </p>
+        <Card className="hover:shadow-lg transition-shadow">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Account Status</CardTitle>
+            <Shield className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <Skeleton className="h-8 w-20" />
+            ) : (
+              <>
+                <div className="text-2xl font-bold flex items-center gap-2">
+                  <Badge variant="default" className="bg-green-500">
+                    {stats?.accountStatus || 'Active'}
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground capitalize">{user?.role} account</p>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Recent Connections */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card className="col-span-1">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              Recent Connections
+            </CardTitle>
+            <CardDescription>Quick access to your most used connections</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {loading ? (
+              <>
+                <Skeleton className="h-16 w-full" />
+                <Skeleton className="h-16 w-full" />
+                <Skeleton className="h-16 w-full" />
+              </>
+            ) : recentConnections.length > 0 ? (
+              recentConnections.map((conn) => (
+                <div
+                  key={conn.identifier}
+                  className="flex items-center justify-between p-4 rounded-lg border hover:bg-accent cursor-pointer transition-colors group"
+                  onClick={() => handleConnectionClick(conn.identifier)}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-primary/10 rounded-lg">
+                      <Monitor className="h-5 w-5 text-primary" />
                     </div>
-                    <div className="p-3 bg-zinc-950/50 rounded-xl group-hover:bg-blue-500/10 transition-colors">
-                      <Monitor className="w-6 h-6 text-zinc-600 group-hover:text-blue-400 transition-colors" />
+                    <div>
+                      <p className="font-medium group-hover:text-primary transition-colors">{conn.name}</p>
+                      <p className="text-xs text-muted-foreground uppercase">{conn.protocol}</p>
                     </div>
                   </div>
-                  <div className="mt-8">
+                  <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-8">No recent connections</p>
+            )}
+            {recentConnections.length > 0 && (
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => router.push('/dashboard/connections')}
+              >
+                View All Connections
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Quick Actions */}
+        <Card className="col-span-1">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5" />
+              Quick Actions
+            </CardTitle>
+            <CardDescription>Common tasks and shortcuts</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Button
+              variant="outline"
+              className="w-full justify-start h-auto p-4"
+              onClick={() => router.push('/dashboard/connections')}
+            >
+              <Monitor className="mr-3 h-5 w-5" />
+              <div className="text-left">
+                <div className="font-medium">Browse Connections</div>
+                <div className="text-xs text-muted-foreground">View all available desktops</div>
+              </div>
+            </Button>
+
+            <Button
+              variant="outline"
+              className="w-full justify-start h-auto p-4"
+              onClick={() => router.push('/dashboard/activity')}
+            >
+              <Activity className="mr-3 h-5 w-5" />
+              <div className="text-left">
+                <div className="font-medium">Activity Log</div>
+                <div className="text-xs text-muted-foreground">View your connection history</div>
+              </div>
+            </Button>
+
+            <Button
+              variant="outline"
+              className="w-full justify-start h-auto p-4"
+              onClick={() => router.push('/dashboard/profile')}
+            >
+              <Users className="mr-3 h-5 w-5" />
+              <div className="text-left">
+                <div className="font-medium">Profile Settings</div>
+                <div className="text-xs text-muted-foreground">Manage your account</div>
+              </div>
+            </Button>
+
+            {user?.role === 'admin' && (
+              <Button
+                variant="outline"
+                className="w-full justify-start h-auto p-4 border-primary/20 bg-primary/5"
+                onClick={() => router.push('/dashboard/admin/users')}
+              >
+                <Shield className="mr-3 h-5 w-5 text-primary" />
+                <div className="text-left">
+                  <div className="font-medium">Admin Panel</div>
+                  <div className="text-xs text-muted-foreground">Manage users and system</div>
+                </div>
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* All Connections Grid */}
+      {connections.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>All Connections</CardTitle>
+            <CardDescription>Click on any connection to start a remote session</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {loading ? (
+                <>
+                  <Skeleton className="h-32" />
+                  <Skeleton className="h-32" />
+                  <Skeleton className="h-32" />
+                </>
+              ) : (
+                connections.map((conn) => (
+                  <div
+                    key={conn.identifier}
+                    className="group relative rounded-lg border p-4 hover:border-primary hover:shadow-md transition-all cursor-pointer"
+                    onClick={() => handleConnectionClick(conn.identifier)}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="p-3 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
+                          <Monitor className="h-6 w-6 text-primary" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold group-hover:text-primary transition-colors">
+                            {conn.name}
+                          </h3>
+                          <p className="text-xs text-muted-foreground uppercase mt-1">{conn.protocol}</p>
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="text-xs">
+                        Available
+                      </Badge>
+                    </div>
                     <Button
-                      className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-bold h-12 rounded-xl shadow-lg shadow-blue-500/20 transition-all"
+                      size="sm"
+                      className="w-full mt-4"
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleConnectionClick(conn.identifier, conn.name);
+                        handleConnectionClick(conn.identifier);
                       }}
                     >
-                      Connect Now
+                      Connect
                     </Button>
                   </div>
-                </div>
-              </Card>
-            ))
-          ) : (
-            <div className="col-span-full py-32 text-center space-y-6">
-              <div className="w-20 h-20 bg-zinc-800/30 rounded-full flex items-center justify-center mx-auto">
-                <Monitor className="w-10 h-10 text-zinc-700" />
-              </div>
-              <div>
-                <h3 className="text-xl font-semibold text-zinc-300 mb-2">No Connections Available</h3>
-                <p className="text-zinc-500">Contact your administrator to get access to remote desktops</p>
-              </div>
+                ))
+              )}
             </div>
-          )}
-        </div>
-      </main>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

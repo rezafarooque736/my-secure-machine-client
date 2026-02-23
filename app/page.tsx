@@ -10,23 +10,32 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import axios from 'axios';
-import { Loader2, ShieldCheck, Sparkles } from 'lucide-react';
+import { Loader2, ShieldCheck, Sparkles, KeyRound, User } from 'lucide-react';
+import { ThemeToggle } from '@/components/theme-toggle';
 import Image from 'next/image';
 
-const loginSchema = z.object({
-  username: z.string().min(1, 'Username is required'),
-  password: z.string().min(1, 'Password is required'),
-});
+const createLoginSchema = () =>
+  z.object({
+    username: z.string().min(1, 'Username is required'),
+    password: z.string().min(1, 'Password is required'),
+  });
 
-type LoginValues = z.infer<typeof loginSchema>;
+type LoginValues = {
+  username: string;
+  password: string;
+};
 
 export default function LoginPage() {
   const router = useRouter();
   const { setAuth, isAuthenticated } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+
+  const loginSchema = createLoginSchema();
 
   const form = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
@@ -48,13 +57,13 @@ export default function LoginPage() {
       });
 
       setAuth(response.data);
-      toast.success('Welcome back! Authentication successful', {
-        description: `Logged in as ${response.data.username}`,
+      toast.success('Login successful', {
+        description: `Welcome ${response.data.username}`,
       });
       router.push('/dashboard');
     } catch (error: any) {
-      const errorMessage = error.response?.data?.error || 'Login failed. Please check your credentials.';
-      toast.error('Authentication Failed', {
+      const errorMessage = error.response?.data?.error || 'Invalid credentials';
+      toast.error('Login failed', {
         description: errorMessage,
       });
     } finally {
@@ -64,95 +73,132 @@ export default function LoginPage() {
 
   if (!isHydrated) return null;
 
-  const appName = process.env.NEXT_PUBLIC_APP_NAME || 'Guacamole Portal';
-  const appTagline = process.env.NEXT_PUBLIC_APP_TAGLINE || 'Secure Remote Desktop Access';
-
   return (
-    <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950">
-      {/* Animated background gradients */}
+    <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-blue-50 via-white to-sky-50 dark:from-zinc-950 dark:via-zinc-900 dark:to-zinc-950">
+      {/* Animated Background Elements */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-blue-500/5 via-transparent to-transparent rounded-full blur-3xl animate-pulse" />
-        <div className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-purple-500/5 via-transparent to-transparent rounded-full blur-3xl animate-pulse delay-1000" />
+        <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-blue-400/20 via-transparent to-transparent dark:from-blue-500/10 rounded-full blur-3xl animate-float" />
+        <div
+          className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-sky-400/20 via-transparent to-transparent dark:from-sky-500/10 rounded-full blur-3xl animate-float"
+          style={{ animationDelay: '1s' }}
+        />
+        <div
+          className="absolute top-1/4 right-1/4 w-96 h-96 bg-gradient-to-r from-sky-300/20 to-yellow-300/20 dark:from-sky-500/10 dark:to-yellow-500/10 rounded-full blur-3xl animate-float"
+          style={{ animationDelay: '2s' }}
+        />
       </div>
 
+      {/* Top Bar - Language and Theme Selectors */}
+      <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+        <ThemeToggle />
+      </div>
+
+      {/* Main Content */}
       <div className="relative z-10 min-h-screen flex flex-col items-center justify-center p-4">
         <div className="w-full max-w-md">
-          {/* Logo and Title */}
-          <div className="mb-10 text-center space-y-4">
-            {/* <div className="absolute inset-0 bg-blue-500 blur-3xl opacity-50" /> */}
-
-            <div className="mx-auto flex items-center justify-center">
+          {/* Logo and Branding */}
+          <div className="mb-8 text-center space-y-4 animate-in fade-in slide-in-from-top-4 duration-1000">
+            <div className="mx-auto w-20 h-20 flex items-center justify-center animate-float">
+              <Image src="/railtel_logo_dark.svg" alt="Logo" width={70} height={70} className="dark:hidden" />
               <Image
                 src="/railtel_logo_light.svg"
-                priority
-                alt="RailTel Logo"
+                alt="Logo"
                 width={70}
                 height={70}
-                className="relative"
+                className="hidden dark:block"
               />
             </div>
             <div className="space-y-2">
-              <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-white via-zinc-100 to-zinc-300 bg-clip-text text-transparent">
-                {appName}
+              <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-sky-500 to-sky-600 bg-clip-text text-transparent">
+                {process.env.NEXT_PUBLIC_APP_NAME || 'My Secure Machines'}
               </h1>
-              <p className="text-zinc-400 flex items-center justify-center gap-2">
-                <Sparkles className="w-4 h-4 text-blue-400" />
-                {appTagline}
+              <p className="text-muted-foreground flex items-center justify-center gap-2">
+                <Sparkles className="w-4 h-4 text-blue-500" />
+                {process.env.NEXT_PUBLIC_APP_TAGLINE || 'Secure Remote Desktop Access'}
               </p>
             </div>
           </div>
 
           {/* Login Card */}
-          <Card className="bg-zinc-900/50 border-zinc-800/50 backdrop-blur-xl shadow-2xl">
-            <CardHeader>
-              <CardTitle className="text-2xl text-zinc-100">Welcome Back</CardTitle>
-              <CardDescription className="text-zinc-400">
-                Enter your credentials to access your secure connections
-              </CardDescription>
+          <Card className="border-2 shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-200">
+            <CardHeader className="space-y-1">
+              <CardTitle className="text-2xl font-bold">Login</CardTitle>
+              <CardDescription className="text-base">Enter your credentials to access the platform</CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={form.handleSubmit(performLogin)} className="space-y-5">
+                {/* Username Field */}
                 <div className="space-y-2">
-                  <Label htmlFor="username" className="text-zinc-200">
+                  <Label htmlFor="username" className="text-sm font-medium">
                     Username
                   </Label>
-                  <Input
-                    id="username"
-                    type="text"
-                    autoComplete="username"
-                    {...form.register('username')}
-                    className="bg-zinc-950/50 border-zinc-800 focus-visible:ring-blue-500 focus-visible:border-blue-500 text-zinc-100 h-12"
-                    placeholder="Enter your username"
-                    disabled={isLoading}
-                  />
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="username"
+                      type="text"
+                      autoComplete="username"
+                      {...form.register('username')}
+                      className="pl-10 h-12 transition-all focus-visible:ring-2 focus-visible:ring-blue-500"
+                      placeholder="Enter your username"
+                      disabled={isLoading}
+                    />
+                  </div>
                   {form.formState.errors.username && (
-                    <p className="text-xs text-red-400 flex items-center gap-1">
+                    <p className="text-xs text-destructive animate-in fade-in slide-in-from-top-1 duration-300">
                       {form.formState.errors.username.message}
                     </p>
                   )}
                 </div>
 
+                {/* Password Field */}
                 <div className="space-y-2">
-                  <Label htmlFor="password" className="text-zinc-200">
+                  <Label htmlFor="password" className="text-sm font-medium">
                     Password
                   </Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    autoComplete="current-password"
-                    {...form.register('password')}
-                    className="bg-zinc-950/50 border-zinc-800 focus-visible:ring-blue-500 focus-visible:border-blue-500 text-zinc-100 h-12"
-                    placeholder="Enter your password"
-                    disabled={isLoading}
-                  />
+                  <div className="relative">
+                    <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="password"
+                      type="password"
+                      autoComplete="current-password"
+                      {...form.register('password')}
+                      className="pl-10 h-12 transition-all focus-visible:ring-2 focus-visible:ring-blue-500"
+                      placeholder="Enter your password"
+                      disabled={isLoading}
+                    />
+                  </div>
                   {form.formState.errors.password && (
-                    <p className="text-xs text-red-400">{form.formState.errors.password.message}</p>
+                    <p className="text-xs text-destructive animate-in fade-in slide-in-from-top-1 duration-300">
+                      {form.formState.errors.password.message}
+                    </p>
                   )}
                 </div>
 
+                {/* Remember Me */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="remember"
+                      checked={rememberMe}
+                      onCheckedChange={(checked: any) => setRememberMe(checked as boolean)}
+                    />
+                    <label
+                      htmlFor="remember"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                    >
+                      Remember Me
+                    </label>
+                  </div>
+                  <Button type="button" variant="link" className="p-0 h-auto text-sm" disabled={isLoading}>
+                    Forgot Password
+                  </Button>
+                </div>
+
+                {/* Submit Button */}
                 <Button
                   type="submit"
-                  className="w-full font-semibold h-12 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 shadow-lg shadow-blue-500/30 transition-all duration-300"
+                  className="w-full h-12 text-base font-semibold bg-gradient-to-r from-sky-500 to-sky-600 hover:from-sky-600 hover:to-sky-700 shadow-lg shadow-blue-500/30 dark:shadow-blue-500/20 transition-all duration-300 hover:scale-[1.02] cursor-pointer"
                   disabled={isLoading}
                 >
                   {isLoading ? (
@@ -161,38 +207,22 @@ export default function LoginPage() {
                       Authenticating...
                     </>
                   ) : (
-                    'Sign In'
+                    <>
+                      <ShieldCheck className="w-5 h-5 mr-2" />
+                      Sign In
+                    </>
                   )}
                 </Button>
               </form>
-
-              {process.env.NEXT_PUBLIC_SHOW_DEBUG_INFO === 'true' && (
-                <div className="mt-6 p-4 bg-zinc-950/50 rounded-lg border border-zinc-800">
-                  <p className="text-xs text-zinc-500 font-mono text-center">Demo: guacadmin / guacadmin</p>
-                </div>
-              )}
             </CardContent>
           </Card>
 
           {/* Footer */}
-          <p className="text-center text-xs text-zinc-600 mt-8">© 2026 {appName}. All rights reserved.</p>
+          <p className="text-center text-xs text-muted-foreground mt-8 animate-in fade-in duration-1000 delay-700">
+            © {new Date().getFullYear()} Secure Access Platform. All rights reserved.
+          </p>
         </div>
       </div>
-
-      <style jsx>{`
-        @keyframes float {
-          0%,
-          100% {
-            transform: translateY(0px);
-          }
-          50% {
-            transform: translateY(-10px);
-          }
-        }
-        .animate-float {
-          animation: float 3s ease-in-out infinite;
-        }
-      `}</style>
     </div>
   );
 }

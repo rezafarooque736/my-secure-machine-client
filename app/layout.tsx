@@ -1,16 +1,25 @@
 import type { Metadata } from 'next';
-import { Outfit } from 'next/font/google';
+import { Inter } from 'next/font/google';
 import { Toaster } from 'sonner';
+import { ThemeProvider } from '@/components/providers/theme-provider';
 import './globals.css';
 
-const outfit = Outfit({
+const inter = Inter({
   subsets: ['latin'],
-  variable: '--font-outfit',
+  variable: '--font-inter',
+  display: 'swap',
 });
 
 export const metadata: Metadata = {
-  title: 'Secure Machine Portal',
-  description: 'Secure remote desktop access portal',
+  title: `${process.env.NEXT_PUBLIC_APP_NAME} - ${process.env.NEXT_PUBLIC_APP_TAGLINE}`,
+  description: `${process.env.NEXT_PUBLIC_APP_DESCRIPTION}`,
+  keywords: [`${process.env.NEXT_PUBLIC_APP_KEYWORDS}`],
+  authors: [{ name: `${process.env.NEXT_PUBLIC_APP_AUTHOR}` }],
+  viewport: 'width=device-width, initial-scale=1, maximum-scale=1',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#09090b' },
+  ],
 };
 
 export default function RootLayout({
@@ -20,9 +29,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${outfit.variable} font-sans antialiased bg-background text-foreground`}>
-        <Toaster position="top-right" richColors />
-        {children}
+      <head />
+      <body className={`${inter.variable} font-sans antialiased`}>
+        <ThemeProvider>
+          <Toaster position="top-right" richColors closeButton />
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   );
