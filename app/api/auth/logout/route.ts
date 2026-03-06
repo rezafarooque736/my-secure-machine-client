@@ -1,30 +1,117 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { proxyRequest } from '@/lib/proxy';
+import { NextRequest, NextResponse } from "next/server";
+import { logger } from "@/lib/logger";
+import { prisma } from "@/lib/prisma";
+
+const GUACAMOLE_URL =
+  process.env.GUACAMOLE_API_URL || "http://localhost:8080/guacamole";
+
+function getClientIp(request: NextRequest): string {
+  return (
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    request.headers.get("x-real-ip") ??
+    "unknown"
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DELETE /api/auth/logout
+//
+// Query params:
+//   token      – Guacamole auth token (required)
+//   sessionId  – UserSession.id to close (optional but strongly recommended)
+//   username   – for the audit log (optional)
+// ─────────────────────────────────────────────────────────────────────────────
 
 export async function DELETE(request: NextRequest) {
+  const ipAddress = getClientIp(request);
+
   try {
-    const { searchParams } = new URL(request.url);
-    const token = searchParams.get('token');
+    const p         = request.nextUrl.searchParams;
+    const token     = p.get("token");
+    const sessionId = p.get("sessionId");
+    const username  = p.get("username") ?? "unknown";
 
     if (!token) {
-      return NextResponse.json({ error: 'Token is required' }, { status: 400 });
+      return NextResponse.json(
+        { error: "Token is required" },
+        { status: 400 }
+      );
     }
 
-    console.log('🚪 Logout request for token:', token.substring(0, 10) + '...');
+    console.log(`[AUTH] Logout — user: ${username} | ip: ${ipAddress}`);
 
-    // Call Guacamole logout endpoint
-    const response = await proxyRequest('DELETE', `tokens/${token}`, null, {}, {});
+    // ── Step 1: Revoke token from Guacamole ────────────────────────────────
+    const guacRes = await fetch(
+      `${GUACAMOLE_URL}/api/tokens/${token}`,
+      {
+        method:  "DELETE",
+        headers: { "Content-Type": "application/json" },
+      }
+    );
 
-    console.log('📡 Logout response status:', response.status);
+    // Guacamole returns 204 on success — treat anything other than 5xx as OK
+    const guacOk = guacRes.status < 500;
 
-    if (response.status === 204 || response.status === 200) {
-      console.log('✅ Logout successful');
-      return NextResponse.json({ message: 'Logged out successfully' });
+    if (!guacOk) {
+      console.warn(`[AUTH] Guacamole token revocation failed: ${guacRes.status}`);
     }
 
-    return NextResponse.json({ error: 'Logout failed' }, { status: response.status || 500 });
+    // ── Step 2: Close UserSession record if sessionId provided ────────────
+    if (sessionId) {
+      try {
+        const existing = await prisma.userSession.findUnique({
+          where: { id: sessionId },
+        });
+
+        if (existing && existing.isActive) {
+          const now = new Date();
+          const durationMin = Math.max(
+            0,
+            Math.floor(
+              (now.getTime() - existing.loginTime.getTime()) / 60000
+            )
+          );
+
+          await prisma.userSession.update({
+            where: { id: sessionId },
+            data: {
+              logoutTime:   now,
+              durationMin,
+              isActive:     false,
+              logoutReason: "MANUAL",
+            },
+          });
+
+          console.log(
+            `[AUTH] Session closed — id: ${sessionId} | duration: ${durationMin}m`
+          );
+        }
+      } catch (sessionErr: any) {
+        // Non-fatal — log but don't block logout response
+        console.warn("[AUTH] Could not close UserSession:", sessionErr.message);
+      }
+    }
+
+    // ── Step 3: Write audit log ────────────────────────────────────────────
+    await logger.log({
+      level:    "INFO",
+      category: "AUTH",
+      message:  `User "${username}" logged out`,
+      username,
+      ipAddress,
+      metadata: {
+        sessionId: sessionId ?? null,
+        tokenPrefix: token.substring(0, 10) + "...",
+      },
+    }).catch(() => {});
+
+    return NextResponse.json({ message: "Logged out successfully" });
   } catch (error: any) {
-    console.error('💥 Logout error:', error.message);
-    return NextResponse.json({ error: 'Internal server error during logout' }, { status: 500 });
+    console.error("[AUTH] Logout error:", error.message);
+
+    return NextResponse.json(
+      { error: "Internal server error during logout" },
+      { status: 500 }
+    );
   }
 }

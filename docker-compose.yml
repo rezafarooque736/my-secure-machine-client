@@ -7,15 +7,15 @@ services:
     networks:
       - secure-machine-network
     ports:
-      - '5901:5901' # VNC port (optional, for direct VNC client access)
-      - '6901:6901' # noVNC port (optional, for browser access)
+      - "5901:5901" # VNC port (optional, for direct VNC client access)
+      - "6901:6901" # noVNC port (optional, for browser access)
     environment:
       - VNC_PW=${VNC_PASSWORD:-vncpassword}
       - VNC_RESOLUTION=${VNC_RESOLUTION:-1920x1080}
       - VNC_COL_DEPTH=${VNC_COLOR_DEPTH:-24}
     volumes:
       - vnc-home:/headless
-    shm_size: '2gb' # Shared memory for better performance
+    shm_size: "2gb" # Shared memory for better performance
 
   guacd:
     container_name: guacd
@@ -40,31 +40,31 @@ services:
       MARIADB_DATABASE: ${DB_NAME}
       MARIADB_USER: ${DB_USER}
       MARIADB_PASSWORD: ${DB_PASSWORD}
-      MARIADB_AUTO_UPGRADE: '1'
+      MARIADB_AUTO_UPGRADE: "1"
     volumes:
       - db-data:/var/lib/mysql
       - ./init:/docker-entrypoint-initdb.d:ro
     ports:
-      - '3306:3306'
+      - "3306:3306"
     healthcheck:
-      test: ['CMD', 'healthcheck.sh', '--connect', '--innodb_initialized']
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  secure-machine-api:
-    container_name: secure-machine-api
+  guacamole:
+    container_name: guacamole
     image: guacamole/guacamole:1.6.0
     restart: unless-stopped
     networks:
       - secure-machine-network
     ports:
-      - '8080:8080'
+      - "8080:8080"
     environment:
       # Guacd Configuration
-      LOG_LEVEL: 'info'
-      GUACD_HOSTNAME: 'guacd'
-      GUACD_PORT: '4822'
+      LOG_LEVEL: "info"
+      GUACD_HOSTNAME: "guacd"
+      GUACD_PORT: "4822"
 
       # Database Configuration
       MYSQL_HOSTNAME: ${DB_HOST}
@@ -74,19 +74,22 @@ services:
       MYSQL_PASSWORD: ${DB_PASSWORD}
 
       # Application Configuration
-      WEBAPP_CONTEXT: 'guacamole'
+      WEBAPP_CONTEXT: "guacamole"
 
       # API Configuration
-      GUACAMOLE_HOME: '/etc/guacamole'
+      GUACAMOLE_HOME: "/etc/guacamole"
 
       # Security Configuration
-      ENABLE_WEBSOCKETS: 'true'
-      TOTP_ENABLED: 'false'
+      RESTRICT_USER_PASSWORD_CHANGE: "false"
+      ENABLE_WEBSOCKETS: "true"
+      TOTP_ENABLED: "false"
+      API_SESSION_TIMEOUT: "1200"
+      API_SESSION_TIMEOUT_EXTENDED: "1800"
 
       # Optional: Recording and Drive Configuration
-      RECORDING_SEARCH_PATH: '/record'
-      DRIVE_ENABLED: 'true'
-      DRIVE_PATH: '/drive'
+      RECORDING_SEARCH_PATH: "/record"
+      DRIVE_ENABLED: "true"
+      DRIVE_PATH: "/drive"
 
     depends_on:
       guacdb:
@@ -99,7 +102,8 @@ services:
       - ./drive:/drive:rw
       - ./record:/record:rw
     healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:8080/guacamole/api/languages']
+      test:
+        ["CMD", "curl", "-f", "http://localhost:8080/guacamole/api/languages"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -118,15 +122,15 @@ services:
   #   environment:
   #     - NODE_ENV=production
   #     - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/guacamole_db
-  #     - GUACAMOLE_API_URL=http://secure-machine-api:8080/guacamole
-  #     - GUACAMOLE_WEBSOCKET_URL=ws://secure-machine-api:8080/guacamole/websocket-tunnel
+  #     - GUACAMOLE_API_URL=http://guacamole:8080/guacamole
+  #     - GUACAMOLE_WEBSOCKET_URL=ws://guacamole:8080/guacamole/websocket-tunnel
   #     - GUACAMOLE_API_USERNAME=${GUACAMOLE_API_USERNAME}
   #     - GUACAMOLE_API_PASSWORD=${GUACAMOLE_API_PASSWORD}
   #     - NEXT_PUBLIC_GUACAMOLE_URL=${NEXT_PUBLIC_GUACAMOLE_URL}
   #     - NEXT_PUBLIC_WEBSOCKET_URL=${NEXT_PUBLIC_WEBSOCKET_URL}
   #   depends_on:
   #     - guacdb
-  #     - secure-machine-api
+  #     - guacamole
 
 volumes:
   db-data:

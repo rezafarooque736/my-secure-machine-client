@@ -11,7 +11,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const guacamoleUrl = process.env.NEXT_PUBLIC_GUACAMOLE_URL || "localhost:8080/guacamole";
+    const guacamoleUrl =
+      process.env.NEXT_PUBLIC_GUACAMOLE_URL || "localhost:8080/guacamole";
     const baseURL = `http://${guacamoleUrl}`;
 
     // Fetch user details
@@ -45,17 +46,20 @@ export async function GET(request: NextRequest) {
     const userData = userResponse.data || {};
     const permissions = permissionsResponse.data || {};
 
-    const fullName = userData.attributes?.["guac-full-name"] || "";
-    const email = userData.attributes?.["guac-email-address"] || "";
-
     return NextResponse.json({
-      username: userData.username || username,
-      email: email,
-      fullName: fullName,
-      organization: userData.attributes?.["guac-organization"] || "",
-      role: permissions.systemPermissions?.includes("ADMINISTER") ? "admin" : "user",
-      lastPasswordUpdate: userData.lastActive || new Date().toISOString(),
-      accountCreated: userData.attributes?.["guac-created"] || new Date().toISOString(),
+      username: userData.username,
+      email: userData.attributes?.["guac-email-address"] ?? null,
+      fullName: userData.attributes?.["guac-full-name"] ?? null,
+      organization: userData.attributes?.["guac-organization"] ?? null,
+      organizationalRole:
+        userData.attributes?.["guac-organizational-role"] ?? null,
+      role: permissions.systemPermissions?.includes("ADMINISTER")
+        ? "admin"
+        : "user",
+      lastActive: userData.lastActive
+        ? new Date(userData.lastActive).toISOString()
+        : null,
+      accountCreated: null,
     });
   } catch (error: any) {
     console.error("Profile fetch error:", error.message);
@@ -80,7 +84,8 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const guacamoleUrl = process.env.NEXT_PUBLIC_GUACAMOLE_URL || "localhost:8080/guacamole";
+    const guacamoleUrl =
+      process.env.NEXT_PUBLIC_GUACAMOLE_URL || "localhost:8080/guacamole";
     const baseURL = `http://${guacamoleUrl}`;
 
     // Get current user data first
@@ -105,6 +110,7 @@ export async function PUT(request: NextRequest) {
         "guac-full-name": body.fullName || "",
         "guac-email-address": body.email || "",
         "guac-organization": body.organization || "",
+        "guac-organizational-role": body.organizationalRole || "",
       },
     };
 

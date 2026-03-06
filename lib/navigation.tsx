@@ -6,12 +6,15 @@ import {
   Users,
   Settings,
   Shield,
-  FileText,
   Clock,
   Key,
-  LogOut,
-  ChevronRight,
-} from 'lucide-react';
+  Megaphone,
+} from "lucide-react";
+import React from "react";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────────────────────
 
 export interface NavItem {
   title: string;
@@ -22,77 +25,86 @@ export interface NavItem {
   items?: NavItem[];
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Main navigation — visible to ALL authenticated users
+// ─────────────────────────────────────────────────────────────────────────────
+
 export const navigationItems: NavItem[] = [
   {
-    title: 'Dashboard',
-    href: '/dashboard',
+    title: "Dashboard",
+    href: "/dashboard",
     icon: LayoutDashboard,
   },
+  // {
+  //   // Collapsible group — expands to show sub-pages
+  //   title: "All Desktops",
+  //   href: "/dashboard/connections",
+  //   icon: Monitor,
+  //   items: [
+  //     {
+  //       title: "All Connections",
+  //       href: "/dashboard/connections",
+  //       icon: Monitor,
+  //     },
+  //   ],
+  // },
   {
-    title: 'Connections',
-    href: '/dashboard/connections',
+    // Collapsible group — expands to show sub-pages
+    title: "My Computers",
+    href: "/dashboard/connections",
     icon: Monitor,
-    items: [
-      {
-        title: 'All Connections',
-        href: '/dashboard/connections',
-        icon: Monitor,
-      },
-      {
-        title: 'Recent',
-        href: '/dashboard/connections/recent',
-        icon: Clock,
-      },
-    ],
   },
   {
-    title: 'Activity',
-    href: '/dashboard/activity',
+    // Activity now absorbs Audit Logs content.
+    // Non-admin users see their own session history + charts.
+    // Admin users additionally see system-wide audit logs tab.
+    title: "Activity",
+    href: "/dashboard/activity",
     icon: Activity,
   },
   {
-    title: 'Profile',
-    href: '/dashboard/profile',
+    title: "Profile",
+    href: "/dashboard/profile",
     icon: User,
   },
 ];
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Admin navigation — only rendered when user.role === 'admin'
+// NOTE: "Audit Logs" has been intentionally removed here.
+//       Its content now lives inside the Activity page (admin tab).
+// ─────────────────────────────────────────────────────────────────────────────
+
 export const adminNavigationItems: NavItem[] = [
   {
-    title: 'User Management',
-    href: '/dashboard/admin/users',
+    // Notices/News Room management for admins
+    title: "Notices",
+    href: "/dashboard/admin/notices",
+    icon: Megaphone,
+    adminOnly: true,
+  },
+  {
+    title: "User Management",
+    href: "/dashboard/admin/users",
     icon: Users,
     adminOnly: true,
   },
   {
-    title: 'Groups',
-    href: '/dashboard/admin/groups',
+    title: "Groups",
+    href: "/dashboard/admin/groups",
     icon: Users,
     adminOnly: true,
   },
   {
-    title: 'Audit Logs',
-    href: '/dashboard/admin/audit-logs',
-    icon: FileText,
+    title: "Active Sessions",
+    href: "/dashboard/admin/sessions",
+    icon: Activity,
     adminOnly: true,
   },
   {
-    title: 'System Settings',
-    href: '/dashboard/admin/settings',
-    icon: Shield,
-    adminOnly: true,
-  },
-];
-
-export const bottomNavigationItems: NavItem[] = [
-  {
-    title: 'Settings',
-    href: '/dashboard/settings',
-    icon: Settings,
-  },
-  {
-    title: 'Change Password',
-    href: '/dashboard/change-password',
+    title: "Change Password",
+    href: "/dashboard/change-password",
     icon: Key,
+    adminOnly: true,
   },
 ];

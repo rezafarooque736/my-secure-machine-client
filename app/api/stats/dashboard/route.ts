@@ -10,44 +10,62 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const guacamoleUrl = process.env.NEXT_PUBLIC_GUACAMOLE_URL || "localhost:8080/guacamole";
+    const guacamoleUrl =
+      process.env.NEXT_PUBLIC_GUACAMOLE_URL || "localhost:8080/guacamole";
     const baseURL = `http://${guacamoleUrl}`;
 
-    // Fetch active sessions
+    // ── 1. Active sessions ──────────────────────────────────────────────────
     const sessionsResponse = await axios.request({
       method: "get",
       maxBodyLength: Infinity,
       url: `${baseURL}/api/session/data/${dataSource}/activeConnections`,
       params: { token },
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       validateStatus: () => true,
     });
 
     const activeSessions =
-      sessionsResponse.status === 200 ? Object.keys(sessionsResponse.data || {}).length : 0;
+      sessionsResponse.status === 200
+        ? Object.keys(sessionsResponse.data || {}).length
+        : 0;
 
-    // Fetch all connections to calculate usage
+    // ── 2. All connections ──────────────────────────────────────────────────
     const connectionsResponse = await axios.request({
       method: "get",
       maxBodyLength: Infinity,
       url: `${baseURL}/api/session/data/${dataSource}/connections`,
       params: { token },
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       validateStatus: () => true,
     });
 
     const connections = connectionsResponse.data || {};
     const connectionIds = Object.keys(connections);
 
-    // Calculate total usage from connection histories
-    let totalMinutes = 0;
-    let totalSessions = 0;
+    // ── 3. Time boundaries ──────────────────────────────────────────────────
     const now = new Date();
-    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    // Start of today (midnight local)
+    const startOfToday = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      0, 0, 0, 0
+    );
+
+    // Start of current month
+    const startOfMonth = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      1,
+      0, 0, 0, 0
+    );
+
+    // ── 4. Walk all connection histories ────────────────────────────────────
+    let totalMinutesToday = 0;
+    let totalMinutesMonth = 0;
+    let totalSessionsToday = 0;
+    let totalSessionsMonth = 0;
 
     await Promise.all(
       connectionIds.map(async (connId) => {
@@ -57,42 +75,77 @@ export async function GET(request: NextRequest) {
             maxBodyLength: Infinity,
             url: `${baseURL}/api/session/data/${dataSource}/connections/${connId}/history`,
             params: { token },
-            headers: {
-              "Content-Type": "application/json",
-            },
+            headers: { "Content-Type": "application/json" },
             validateStatus: () => true,
           });
 
           if (historyResponse.status === 200 && historyResponse.data) {
-            const history = Array.isArray(historyResponse.data)
+            const history: any[] = Array.isArray(historyResponse.data)
               ? historyResponse.data
               : Object.values(historyResponse.data);
 
             history.forEach((record: any) => {
               const startDate = new Date(record.startDate);
-              if (startDate >= firstDayOfMonth) {
-                totalSessions++;
-                const endDate = record.endDate ? new Date(record.endDate) : new Date();
-                const duration = Math.floor((endDate.getTime() - startDate.getTime()) / 60000);
-                totalMinutes += duration > 0 ? duration : 0;
+              const endDate = record.endDate
+                ? new Date(record.endDate)
+                : new Date();
+              const duration = Math.max(
+                0,
+                Math.floor(
+                  (endDate.getTime() - startDate.getTime()) / 60000
+                )
+              );
+
+              // Month bucket
+              if (startDate >= startOfMonth) {
+                totalSessionsMonth++;
+                totalMinutesMonth += duration;
+              }
+
+              // Today bucket
+              if (startDate >= startOfToday) {
+                totalSessionsToday++;
+                totalMinutesToday += duration;
               }
             });
           }
-        } catch (error) {
-          // Skip connections with no history
+        } catch {
+          // skip connections with no history
         }
-      }),
+      })
     );
 
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
+    // ── 5. Format helpers ───────────────────────────────────────────────────
+    const formatDuration = (minutes: number): string => {
+      const h = Math.floor(minutes / 60);
+      const m = minutes % 60;
+      if (h === 0 && m === 0) return "0m";
+      if (h === 0) return `${m}m`;
+      if (m === 0) return `${h}h`;
+      return `${h}h ${m}m`;
+    };
+
+    // ── 6. Total connections available ──────────────────────────────────────
+    const totalConnections = connectionIds.length;
 
     return NextResponse.json({
+      // Existing fields (kept for backward compat)
       activeSessions,
-      totalUsage: hours > 0 || minutes > 0 ? `${hours}h ${minutes}m` : "0h",
-      totalUsageMinutes: totalMinutes,
-      connectionCount: totalSessions,
+      totalUsage: formatDuration(totalMinutesMonth),      
+      totalUsageMinutes: totalMinutesMonth,               
+      connectionCount: totalSessionsMonth,                
       accountStatus: "Active",
+
+      // New granular fields
+      totalConnections,
+
+      totalUsageToday: formatDuration(totalMinutesToday),
+      totalUsageTodayMinutes: totalMinutesToday,
+      totalSessionsToday,
+
+      totalUsageMonth: formatDuration(totalMinutesMonth),
+      totalUsageMonthMinutes: totalMinutesMonth,
+      totalSessionsMonth,
     });
   } catch (error: any) {
     console.error("Dashboard stats error:", error.message);
@@ -101,7 +154,7 @@ export async function GET(request: NextRequest) {
         error: "Failed to fetch dashboard statistics",
         details: error.message,
       },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }

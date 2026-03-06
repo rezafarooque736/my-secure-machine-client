@@ -54,3 +54,64 @@ model LoginAttempt {
   @@index([timestamp])
   @@map("login_attempts")
 }
+
+// ─────────────────────────────────────────
+// Full User Login → Logout Session
+// Tracks every authenticated session lifecycle
+// ─────────────────────────────────────────
+
+model UserSession {
+  id           String    @id @default(cuid())
+
+  // Identity
+  username     String
+  role         String?
+
+  // Network info (both sides)
+  clientIp     String?   // browser/client IP
+  serverIp     String?   // server/origin IP (from headers)
+  hostname     String?   // resolved hostname if available
+  userAgent    String?   // full UA string
+
+  // Timing
+  loginTime    DateTime  @default(now())
+  logoutTime   DateTime?
+  durationMin  Int?      // filled on logout
+
+  // State
+  isActive     Boolean   @default(true)
+  logoutReason String?   // MANUAL, TIMEOUT, FORCED, EXPIRED
+
+  // Extra metadata (JSON string)
+  // e.g. { "browser": "Chrome", "os": "Ubuntu", "country": "IN" }
+  metadata     String?
+
+  @@index([username])
+  @@index([loginTime])
+  @@index([isActive])
+  @@index([clientIp])
+  @@map("user_sessions")
+}
+
+// ─────────────────────────────────────────
+// Notices / News Room
+// Admin-managed announcements shown on dashboard
+// ─────────────────────────────────────────
+
+model Notice {
+  id        Int       @id @default(autoincrement())
+  title     String
+  content   String
+  type      String    @default("INFO") // INFO | WARNING | SUCCESS | UPDATE
+  isPinned  Boolean   @default(false)
+  isActive  Boolean   @default(true)
+  createdBy String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  expiresAt DateTime? // auto-hide after this date (null = permanent)
+
+  @@index([isActive])
+  @@index([isPinned])
+  @@index([createdAt])
+  @@map("notices")
+}

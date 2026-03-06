@@ -1,182 +1,250 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useAuthStore } from '@/lib/store';
-import { useRouter } from 'next/navigation';
-import axios from 'axios';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { Skeleton } from '@/components/ui/skeleton';
+import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { useAuthStore } from "@/lib/store";
+import axios from "axios";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Separator } from "@/components/ui/separator";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
+  User,
   Mail,
+  Building2,
   Shield,
-  Calendar,
   Clock,
+  Activity,
+  KeyRound,
   Edit,
   Save,
   X,
-  Key,
-  Activity,
-  Database,
-  AlertCircle,
-} from 'lucide-react';
-import { toast } from 'sonner';
-import { format } from 'date-fns';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+  RefreshCw,
+  Monitor,
+  CalendarClock,
+  Hash,
+  Briefcase,
+} from "lucide-react";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────────────────────
 
 interface ProfileData {
   username: string;
-  email: string;
-  fullName: string;
-  organization: string;
-  role: string;
-  lastPasswordUpdate: string;
-  accountCreated: string;
+  email: string | null;
+  fullName: string | null;
+  organization: string | null;
+  organizationalRole: string | null;
+  role: "admin" | "user";
+  lastActive: string | null;
+  accountCreated: string | null;
 }
 
 interface ActivityStats {
   totalSessions: number;
-  totalDuration: number;
+  totalDuration: number; // minutes
   lastLogin: string;
+  mostUsedProtocol: string;
+  activeToday: number;
 }
+
+interface EditForm {
+  fullName: string;
+  email: string;
+  organization: string;
+  organizationalRole: string;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+function formatDate(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  try {
+    return new Date(iso).toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return "—";
+  }
+}
+
+function formatDuration(minutes: number): string {
+  if (!minutes) return "0h 0m";
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return `${h}h ${m}m`;
+}
+
+function getInitials(name: string | null, username: string): string {
+  if (name?.trim()) {
+    const parts = name.trim().split(" ");
+    return parts.length >= 2
+      ? `${parts[0][0]}${parts[1][0]}`.toUpperCase()
+      : parts[0].substring(0, 2).toUpperCase();
+  }
+  return username.substring(0, 2).toUpperCase();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sub-components
+// ─────────────────────────────────────────────────────────────────────────────
+
+function InfoRow({
+  icon: Icon,
+  label,
+  value,
+  loading,
+}: {
+  icon: React.ElementType;
+  label: string;
+  value?: string | null;
+  loading?: boolean;
+}) {
+  return (
+    <div className="flex items-start gap-3 py-2.5">
+      <div className="mt-0.5 p-1.5 rounded-md bg-muted shrink-0">
+        <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs text-muted-foreground">{label}</p>
+        {loading ? (
+          <Skeleton className="h-4 w-32 mt-1" />
+        ) : (
+          <p className="text-sm font-medium truncate mt-0.5">
+            {value || (
+              <span className="text-muted-foreground italic">Not set</span>
+            )}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+  color,
+  loading,
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: string;
+  color: string;
+  loading: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-3 p-3 rounded-lg border bg-card">
+      <div className={`p-2 rounded-lg ${color}`}>
+        <Icon className="h-4 w-4" />
+      </div>
+      <div>
+        {loading ? (
+          <Skeleton className="h-5 w-12 mb-1" />
+        ) : (
+          <p className="text-base font-bold leading-tight">{value}</p>
+        )}
+        <p className="text-xs text-muted-foreground">{label}</p>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Main Page
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default function ProfilePage() {
   const { user } = useAuthStore();
   const router = useRouter();
+
+  const [profile, setProfile] = useState<ProfileData | null>(null);
+  const [stats, setStats] = useState<ActivityStats | null>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [statsLoading, setStatsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [profileData, setProfileData] = useState<ProfileData | null>(null);
-  const [activityStats, setActivityStats] = useState<ActivityStats | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  // Change password dialog
-  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
-  const [passwordData, setPasswordData] = useState({
-    oldPassword: '',
-    newPassword: '',
-    confirmPassword: '',
+  const [form, setForm] = useState<EditForm>({
+    fullName: "",
+    email: "",
+    organization: "",
+    organizationalRole: "",
   });
 
-  // Active sessions dialog
-  const [showSessionsDialog, setShowSessionsDialog] = useState(false);
-  const [activeSessions, setActiveSessions] = useState<any[]>([]);
-
-  // Form data
-  const [formData, setFormData] = useState({
-    fullName: '',
-    email: '',
-    organization: '',
-  });
-
-  const fetchProfileData = async () => {
+  // ── Fetch profile ──────────────────────────────────────────────────────────
+  const fetchProfile = useCallback(async () => {
     if (!user) return;
-
-    setLoading(true);
+    setProfileLoading(true);
     try {
-      // Fetch profile data
-      const profileResponse = await axios.get('/api/profile', {
+      const res = await axios.get("/api/profile", {
         params: {
           token: user.authToken,
           dataSource: user.dataSource,
           username: user.username,
         },
       });
-      setProfileData(profileResponse.data);
-
-      // Update form with fetched data
-      setFormData({
-        fullName: profileResponse.data.fullName,
-        email: profileResponse.data.email,
-        organization: profileResponse.data.organization,
+      setProfile(res.data);
+      setForm({
+        fullName: res.data.fullName ?? "",
+        email: res.data.email ?? "",
+        organization: res.data.organization ?? "",
+        organizationalRole: res.data.organizationalRole ?? "",
       });
-
-      // Fetch activity stats
-      const statsResponse = await axios.get('/api/stats/activity', {
-        params: {
-          token: user.authToken,
-          dataSource: user.dataSource,
-          username: user.username,
-        },
-      });
-      setActivityStats({
-        totalSessions: statsResponse.data.totalSessions,
-        totalDuration: statsResponse.data.totalDuration,
-        lastLogin: statsResponse.data.lastLogin,
-      });
-    } catch (error) {
-      console.error('Failed to fetch profile:', error);
-      toast.error('Failed to load profile data');
+    } catch (err) {
+      toast.error("Failed to load profile");
     } finally {
-      setLoading(false);
+      setProfileLoading(false);
     }
-  };
-
-  useEffect(() => {
-    fetchProfileData();
   }, [user]);
 
-  const handleSaveProfile = async () => {
+  // ── Fetch activity stats ───────────────────────────────────────────────────
+  const fetchStats = useCallback(async () => {
     if (!user) return;
-
-    setIsLoading(true);
+    setStatsLoading(true);
     try {
-      await axios.put('/api/profile', formData, {
+      const res = await axios.get("/api/stats/activity", {
         params: {
           token: user.authToken,
           dataSource: user.dataSource,
           username: user.username,
         },
       });
-
-      toast.success('Profile updated successfully');
-      setIsEditing(false);
-      fetchProfileData(); // Refresh data
-    } catch (error) {
-      console.error('Failed to update profile:', error);
-      toast.error('Failed to update profile');
+      setStats(res.data);
+    } catch {
+      // Non-fatal — stats section shows zeros
     } finally {
-      setIsLoading(false);
+      setStatsLoading(false);
     }
-  };
+  }, [user]);
 
-  const handleChangePassword = async () => {
+  useEffect(() => {
+    fetchProfile();
+    fetchStats();
+  }, [fetchProfile, fetchStats]);
+
+  // ── Save profile ───────────────────────────────────────────────────────────
+  const handleSave = async () => {
     if (!user) return;
-
-    if (!passwordData.oldPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
-      toast.error('Please fill all fields');
-      return;
-    }
-
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      toast.error('New passwords do not match');
-      return;
-    }
-
-    if (passwordData.newPassword.length < 8) {
-      toast.error('Password must be at least 8 characters');
-      return;
-    }
-
+    setSaving(true);
     try {
       await axios.put(
-        '/api/profile/change-password',
+        "/api/profile",
         {
-          oldPassword: passwordData.oldPassword,
-          newPassword: passwordData.newPassword,
+          fullName: form.fullName,
+          email: form.email,
+          organization: form.organization,
+          organizationalRole: form.organizationalRole,
         },
         {
           params: {
@@ -184,392 +252,342 @@ export default function ProfilePage() {
             dataSource: user.dataSource,
             username: user.username,
           },
-        }
-      );
-
-      toast.success('Password changed successfully');
-      setShowPasswordDialog(false);
-      setPasswordData({ oldPassword: '', newPassword: '', confirmPassword: '' });
-    } catch (error: any) {
-      console.error('Failed to change password:', error);
-      toast.error(error.response?.data?.error || 'Failed to change password');
-    }
-  };
-
-  const fetchActiveSessions = async () => {
-    if (!user) return;
-
-    try {
-      const response = await axios.get('/api/profile/sessions', {
-        params: {
-          token: user.authToken,
-          dataSource: user.dataSource,
         },
-      });
-      setActiveSessions(response.data);
-      setShowSessionsDialog(true);
-    } catch (error) {
-      console.error('Failed to fetch sessions:', error);
-      toast.error('Failed to load active sessions');
+      );
+      toast.success("Profile updated successfully");
+      setIsEditing(false);
+      fetchProfile();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error ?? "Failed to update profile");
+    } finally {
+      setSaving(false);
     }
   };
 
-  const getRoleBadge = () => {
-    const role = profileData?.role || user?.role || 'user';
-    const variants: Record<string, string> = {
-      admin: 'bg-purple-500/10 text-purple-500 border-purple-500/20',
-      user: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
-      guest: 'bg-gray-500/10 text-gray-500 border-gray-500/20',
-    };
-    return (
-      <Badge variant="outline" className={variants[role] || variants.user}>
-        {role.toUpperCase()}
-      </Badge>
-    );
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setForm({
+      fullName: profile?.fullName ?? "",
+      email: profile?.email ?? "",
+      organization: profile?.organization ?? "",
+      organizationalRole: profile?.organizationalRole ?? "",
+    });
   };
 
-  const formatDuration = (minutes: number) => {
-    const hours = Math.floor(minutes / 60);
-    return `${hours}h ${minutes % 60}m`;
-  };
+  // ── Role badge ─────────────────────────────────────────────────────────────
+  const roleBadgeClass =
+    profile?.role === "admin"
+      ? "bg-purple-500/10 text-purple-600 border-purple-500/20"
+      : "bg-blue-500/10 text-blue-600 border-blue-500/20";
 
-  if (loading) {
-    return (
-      <div className="space-y-6 py-6 max-w-4xl animate-in fade-in duration-500">
-        <Skeleton className="h-12 w-64" />
-        <Skeleton className="h-48 w-full" />
-        <Skeleton className="h-64 w-full" />
-      </div>
-    );
-  }
-
+  // ─────────────────────────────────────────────────────────────────────────
+  // Render
+  // ─────────────────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-6 py-6 max-w-4xl animate-in fade-in duration-500">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Profile</h1>
-        <p className="text-muted-foreground mt-1">Manage your account information</p>
+    <div className="p-4 max-w-4xl mx-auto space-y-4 animate-in fade-in duration-300">
+      {/* ── Page header ─────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight">My Profile</h1>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            View and manage your account information
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 text-xs gap-1.5"
+          onClick={() => {
+            fetchProfile();
+            fetchStats();
+          }}
+          disabled={profileLoading}
+        >
+          <RefreshCw
+            className={`h-3.5 w-3.5 ${profileLoading ? "animate-spin" : ""}`}
+          />
+          Refresh
+        </Button>
       </div>
 
-      {/* Profile Overview Card */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
-            {/* Avatar */}
-            <Avatar className="h-24 w-24 border-4 border-background shadow-lg">
-              <AvatarImage src={`https://avatar.vercel.sh/${user?.username}.png`} />
-              <AvatarFallback className="text-2xl font-bold bg-gradient-to-br from-blue-500 to-purple-600 text-white">
-                {user?.username?.substring(0, 2).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-
-            {/* User Info */}
-            <div className="flex-1">
-              <div className="flex items-center gap-3 mb-2">
-                <h2 className="text-2xl font-bold">{profileData?.username || user?.username}</h2>
-                {getRoleBadge()}
-                <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/20">
-                  Active
-                </Badge>
+      {/* ── Top row: Avatar card + Info card ────────────────────────────── */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Avatar / identity */}
+        <Card className="md:col-span-1">
+          <CardContent className="pt-6 flex flex-col items-center gap-3 text-center">
+            {/* Avatar circle */}
+            <div className="relative">
+              <div className="h-20 w-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold shadow-lg select-none">
+                {getInitials(profile?.fullName ?? null, user?.username ?? "U")}
               </div>
-              <div className="space-y-1 text-sm text-muted-foreground">
-                {profileData?.email && (
-                  <div className="flex items-center gap-2">
-                    <Mail className="h-4 w-4" />
-                    <span>{profileData.email}</span>
-                  </div>
-                )}
-                <div className="flex items-center gap-2">
-                  <Database className="h-4 w-4" />
-                  <span>Data Source: {user?.dataSource}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  <span>
-                    Joined {format(new Date(profileData?.accountCreated || new Date()), 'MMMM yyyy')}
-                  </span>
-                </div>
-              </div>
+              <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-green-500 border-2 border-background" />
             </div>
 
-            {/* Actions */}
-            <div className="flex flex-col gap-2">
+            {/* Name / username */}
+            {profileLoading ? (
+              <>
+                <Skeleton className="h-5 w-32" />
+                <Skeleton className="h-3 w-20" />
+              </>
+            ) : (
+              <>
+                <div>
+                  <p className="font-bold text-base leading-tight">
+                    {profile?.fullName || user?.username}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    @{user?.username}
+                  </p>
+                </div>
+                <Badge
+                  variant="outline"
+                  className={`text-xs ${roleBadgeClass}`}
+                >
+                  {profile?.role?.toUpperCase() ?? "USER"}
+                </Badge>
+              </>
+            )}
+
+            <Separator className="w-full" />
+
+            {/* Quick actions */}
+            <div className="w-full space-y-1.5">
               {!isEditing ? (
-                <Button onClick={() => setIsEditing(true)} className="gap-2">
-                  <Edit className="h-4 w-4" />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full h-8 text-xs gap-1.5"
+                  onClick={() => setIsEditing(true)}
+                >
+                  <Edit className="h-3.5 w-3.5" />
                   Edit Profile
                 </Button>
               ) : (
-                <Button onClick={() => setIsEditing(false)} variant="outline" className="gap-2">
-                  <X className="h-4 w-4" />
-                  Cancel
-                </Button>
+                <div className="flex gap-1.5">
+                  <Button
+                    size="sm"
+                    className="flex-1 h-8 text-xs gap-1"
+                    onClick={handleSave}
+                    disabled={saving}
+                  >
+                    {saving ? (
+                      <span className="h-3 w-3 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                    ) : (
+                      <Save className="h-3.5 w-3.5" />
+                    )}
+                    Save
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1 h-8 text-xs gap-1"
+                    onClick={handleCancelEdit}
+                    disabled={saving}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                    Cancel
+                  </Button>
+                </div>
               )}
-              <Button variant="outline" onClick={() => setShowPasswordDialog(true)} className="gap-2">
-                <Key className="h-4 w-4" />
+              <Button
+                size="sm"
+                variant="ghost"
+                className="w-full h-8 text-xs gap-1.5 text-muted-foreground"
+                onClick={() => router.push("/dashboard/change-password")}
+              >
+                <KeyRound className="h-3.5 w-3.5" />
                 Change Password
               </Button>
             </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Edit Form or Details */}
-      {isEditing ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Edit Profile</CardTitle>
-            <CardDescription>Update your personal information</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="fullName">Full Name</Label>
-              <Input
-                id="fullName"
-                value={formData.fullName}
-                onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                placeholder="John Doe"
-                disabled={isLoading}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="email">Email (Optional)</Label>
-              <Input
-                id="email"
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                placeholder="john.doe@example.com"
-                disabled={isLoading}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="organization">Organization Name (Optional)</Label>
-              <Input
-                id="organization"
-                value={formData.organization}
-                onChange={(e) => setFormData({ ...formData, organization: e.target.value })}
-                placeholder="Your Organisztion name"
-                disabled={isLoading}
-              />
-            </div>
-
-            <div className="flex gap-4">
-              <Button onClick={handleSaveProfile} disabled={isLoading} className="gap-2">
-                <Save className="h-4 w-4" />
-                {isLoading ? 'Saving...' : 'Save Changes'}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsEditing(false)}
-                disabled={isLoading}
-              >
-                Cancel
-              </Button>
-            </div>
           </CardContent>
         </Card>
-      ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle>Profile Details</CardTitle>
-            <CardDescription>Your account information</CardDescription>
+
+        {/* Profile details / edit form */}
+        <Card className="md:col-span-2">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <User className="h-4 w-4 text-primary" />
+              {isEditing ? "Edit Profile" : "Profile Details"}
+            </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid gap-6 md:grid-cols-2">
-              <div>
-                <Label className="text-muted-foreground">Full Name</Label>
-                <p className="text-lg font-medium mt-1">{profileData?.fullName || 'Not set'}</p>
-              </div>
-              <div>
-                <Label className="text-muted-foreground">Email</Label>
-                <p className="text-lg font-medium mt-1">{profileData?.email || 'Not set'}</p>
-              </div>
-              <div>
-                <Label className="text-muted-foreground">Organization</Label>
-                <p className="text-lg font-medium mt-1">{profileData?.organization || 'Not set'}</p>
-              </div>
-              <div>
-                <Label className="text-muted-foreground">Role</Label>
-                <div className="mt-2">{getRoleBadge()}</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Account Statistics */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Activity className="h-5 w-5" />
-            Account Activity
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="flex items-center gap-4 p-4 rounded-lg border">
-              <div className="p-3 bg-blue-500/10 rounded-lg">
-                <Clock className="h-6 w-6 text-blue-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{activityStats?.totalSessions || 0}</p>
-                <p className="text-sm text-muted-foreground">Total Sessions</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-4 p-4 rounded-lg border">
-              <div className="p-3 bg-purple-500/10 rounded-lg">
-                <Activity className="h-6 w-6 text-purple-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">
-                  {activityStats ? formatDuration(activityStats.totalDuration) : '0h'}
-                </p>
-                <p className="text-sm text-muted-foreground">Total Time</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-4 p-4 rounded-lg border">
-              <div className="p-3 bg-green-500/10 rounded-lg">
-                <Calendar className="h-6 w-6 text-green-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">
-                  {activityStats ? format(new Date(activityStats.lastLogin), 'MMM dd') : 'Today'}
-                </p>
-                <p className="text-sm text-muted-foreground">Last Active</p>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Security Information */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Shield className="h-5 w-5" />
-            Security
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between p-4 rounded-lg border">
-            <div>
-              <p className="font-medium">Password</p>
-              <p className="text-sm text-muted-foreground">
-                Last changed{' '}
-                {profileData ? format(new Date(profileData.lastPasswordUpdate), 'MMM dd, yyyy') : 'Unknown'}
-              </p>
-            </div>
-            <Button variant="outline" onClick={() => setShowPasswordDialog(true)}>
-              Change
-            </Button>
-          </div>
-
-          <Alert>
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              <strong>Two-Factor Authentication:</strong> Not available in this version. Contact your administrator for advanced security features.
-            </AlertDescription>
-          </Alert>
-
-          <div className="flex items-center justify-between p-4 rounded-lg border">
-            <div>
-              <p className="font-medium">Active Sessions</p>
-              <p className="text-sm text-muted-foreground">View your currently logged-in devices</p>
-            </div>
-            <Button variant="outline" onClick={fetchActiveSessions}>
-              View
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Change Password Dialog */}
-      <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Change Password</DialogTitle>
-            <DialogDescription>Enter your current password and choose a new one</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="oldPassword">Current Password</Label>
-              <Input
-                id="oldPassword"
-                type="password"
-                value={passwordData.oldPassword}
-                onChange={(e) => setPasswordData({ ...passwordData, oldPassword: e.target.value })}
-                placeholder="••••••••"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="newPassword">New Password</Label>
-              <Input
-                id="newPassword"
-                type="password"
-                value={passwordData.newPassword}
-                onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                placeholder="••••••••"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm New Password</Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                value={passwordData.confirmPassword}
-                onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-                placeholder="••••••••"
-              />
-            </div>
-            <p className="text-xs text-muted-foreground">Minimum 8 characters</p>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowPasswordDialog(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleChangePassword}>Change Password</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Active Sessions Dialog */}
-      <Dialog open={showSessionsDialog} onOpenChange={setShowSessionsDialog}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Active Sessions</DialogTitle>
-            <DialogDescription>Devices where you&apos;re currently logged in</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2 py-4">
-            {activeSessions.length > 0 ? (
-              activeSessions.map((session, index) => (
-                <div key={index} className="flex items-center justify-between p-4 rounded-lg border">
-                  <div>
-                    <p className="font-medium">{session.connectionName}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {session.protocol.toUpperCase()} • Started{' '}
-                      {format(new Date(session.startTime), 'MMM dd, HH:mm')}
-                    </p>
-                  </div>
-                  <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/20">
-                    Active
-                  </Badge>
+          <CardContent className="pt-0">
+            {isEditing ? (
+              /* ── Edit form ──────────────────────────────────────────────── */
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="fullName" className="text-xs font-semibold">
+                    Full Name
+                  </Label>
+                  <Input
+                    id="fullName"
+                    value={form.fullName}
+                    onChange={(e) =>
+                      setForm({ ...form, fullName: e.target.value })
+                    }
+                    placeholder="e.g. John Doe"
+                    className="h-8 text-xs"
+                    disabled={saving}
+                  />
                 </div>
-              ))
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="email" className="text-xs font-semibold">
+                    Email Address
+                  </Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={form.email}
+                    onChange={(e) =>
+                      setForm({ ...form, email: e.target.value })
+                    }
+                    placeholder="e.g. user@example.com"
+                    className="h-8 text-xs"
+                    disabled={saving}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="org" className="text-xs font-semibold">
+                    Organization
+                  </Label>
+                  <Input
+                    id="org"
+                    value={form.organization}
+                    onChange={(e) =>
+                      setForm({ ...form, organization: e.target.value })
+                    }
+                    placeholder="e.g. Railtel"
+                    className="h-8 text-xs"
+                    disabled={saving}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="orgRole" className="text-xs font-semibold">
+                    Organizational Role
+                  </Label>
+                  <Input
+                    id="orgRole"
+                    value={form.organizationalRole}
+                    onChange={(e) =>
+                      setForm({ ...form, organizationalRole: e.target.value })
+                    }
+                    placeholder="e.g. Network Engineer"
+                    className="h-8 text-xs"
+                    disabled={saving}
+                  />
+                </div>
+
+                {/* Username (read-only) */}
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label className="text-xs font-semibold text-muted-foreground">
+                    Username (cannot be changed)
+                  </Label>
+                  <Input
+                    value={user?.username ?? ""}
+                    disabled
+                    className="h-8 text-xs bg-muted"
+                  />
+                </div>
+              </div>
             ) : (
-              <p className="text-center text-muted-foreground py-8">No active sessions</p>
+              /* ── Read-only info rows ─────────────────────────────────────── */
+              <div className="divide-y">
+                <InfoRow
+                  icon={User}
+                  label="Full Name"
+                  value={profile?.fullName}
+                  loading={profileLoading}
+                />
+                <InfoRow
+                  icon={Hash}
+                  label="Username"
+                  value={user?.username}
+                  loading={profileLoading}
+                />
+                <InfoRow
+                  icon={Mail}
+                  label="Email Address"
+                  value={profile?.email}
+                  loading={profileLoading}
+                />
+                <InfoRow
+                  icon={Building2}
+                  label="Organization"
+                  value={profile?.organization}
+                  loading={profileLoading}
+                />
+                <InfoRow
+                  icon={Briefcase}
+                  label="Organizational Role"
+                  value={profile?.organizationalRole}
+                  loading={profileLoading}
+                />
+                <InfoRow
+                  icon={Shield}
+                  label="System Role"
+                  value={profile?.role?.toUpperCase()}
+                  loading={profileLoading}
+                />
+                <InfoRow
+                  icon={Monitor}
+                  label="Data Source"
+                  value={user?.dataSource}
+                />
+                <InfoRow
+                  icon={CalendarClock}
+                  label="Last Active"
+                  value={formatDate(profile?.lastActive)}
+                  loading={profileLoading}
+                />
+              </div>
             )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ── Activity Stats ───────────────────────────────────────────────── */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <Activity className="h-4 w-4 text-primary" />
+            Activity Overview
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <StatCard
+              icon={Monitor}
+              label="Total Sessions"
+              value={stats?.totalSessions?.toString() ?? "0"}
+              color="bg-blue-500/10 text-blue-500"
+              loading={statsLoading}
+            />
+            <StatCard
+              icon={Clock}
+              label="Total Time"
+              value={formatDuration(stats?.totalDuration ?? 0)}
+              color="bg-purple-500/10 text-purple-500"
+              loading={statsLoading}
+            />
+            <StatCard
+              icon={Activity}
+              label="Active Today"
+              value={stats?.activeToday?.toString() ?? "0"}
+              color="bg-green-500/10 text-green-500"
+              loading={statsLoading}
+            />
+            <StatCard
+              icon={Shield}
+              label="Top Protocol"
+              value={stats?.mostUsedProtocol ?? "N/A"}
+              color="bg-orange-500/10 text-orange-500"
+              loading={statsLoading}
+            />
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowSessionsDialog(false)}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </CardContent>
+      </Card>
     </div>
   );
 }

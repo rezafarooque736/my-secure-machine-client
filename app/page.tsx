@@ -1,26 +1,32 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { z } from 'zod';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useAuthStore } from '@/lib/store';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
-import { toast } from 'sonner';
-import axios from 'axios';
-import { Loader2, ShieldCheck, Sparkles, KeyRound, User } from 'lucide-react';
-import { ThemeToggle } from '@/components/theme-toggle';
-import Image from 'next/image';
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useAuthStore } from "@/lib/store";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { toast } from "sonner";
+import axios from "axios";
+import { Loader2, ShieldCheck, Sparkles, KeyRound, User } from "lucide-react";
+import { ThemeToggle } from "@/components/theme-toggle";
+import Image from "next/image";
 
 const createLoginSchema = () =>
   z.object({
-    username: z.string().min(1, 'Username is required'),
-    password: z.string().min(1, 'Password is required'),
+    username: z.string().min(1, "Username is required"),
+    password: z.string().min(1, "Password is required"),
   });
 
 type LoginValues = {
@@ -39,31 +45,39 @@ export default function LoginPage() {
 
   const form = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { username: '', password: '' },
+    defaultValues: { username: "", password: "" },
   });
 
   useEffect(() => setIsHydrated(true), []);
 
   useEffect(() => {
-    if (isHydrated && isAuthenticated) router.push('/dashboard');
+    if (isHydrated && isAuthenticated) router.push("/dashboard");
   }, [isHydrated, isAuthenticated, router]);
 
   const performLogin = async (values: LoginValues) => {
     setIsLoading(true);
     try {
-      const response = await axios.post('/api/auth/login', {
+      const res = await axios.post("/api/auth/login", {
         username: values.username.trim(),
         password: values.password.trim(),
       });
 
-      setAuth(response.data);
-      toast.success('Login successful', {
-        description: `Welcome ${response.data.username}`,
+      // res.data shape (from File 10):
+      // { authToken, username, dataSource, availableDataSources, role, sessionId }
+
+      setAuth({
+        authToken: res.data.authToken,
+        username: res.data.username,
+        dataSource: res.data.dataSource,
+        availableDataSources: res.data.availableDataSources ?? ["mysql"],
+        role: res.data.role,
+        sessionId: res.data.sessionId, // ← stored in Zustand + localStorage
       });
-      router.push('/dashboard');
+
+      router.push("/dashboard");
     } catch (error: any) {
-      const errorMessage = error.response?.data?.error || 'Invalid credentials';
-      toast.error('Login failed', {
+      const errorMessage = error.response?.data?.error || "Invalid credentials";
+      toast.error("Login failed", {
         description: errorMessage,
       });
     } finally {
@@ -80,11 +94,11 @@ export default function LoginPage() {
         <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-blue-400/20 via-transparent to-transparent dark:from-blue-500/10 rounded-full blur-3xl animate-float" />
         <div
           className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-sky-400/20 via-transparent to-transparent dark:from-sky-500/10 rounded-full blur-3xl animate-float"
-          style={{ animationDelay: '1s' }}
+          style={{ animationDelay: "1s" }}
         />
         <div
           className="absolute top-1/4 right-1/4 w-96 h-96 bg-gradient-to-r from-sky-300/20 to-yellow-300/20 dark:from-sky-500/10 dark:to-yellow-500/10 rounded-full blur-3xl animate-float"
-          style={{ animationDelay: '2s' }}
+          style={{ animationDelay: "2s" }}
         />
       </div>
 
@@ -99,7 +113,13 @@ export default function LoginPage() {
           {/* Logo and Branding */}
           <div className="mb-8 text-center space-y-4 animate-in fade-in slide-in-from-top-4 duration-1000">
             <div className="mx-auto w-20 h-20 flex items-center justify-center animate-float">
-              <Image src="/railtel_logo_dark.svg" alt="Logo" width={70} height={70} className="dark:hidden" />
+              <Image
+                src="/railtel_logo_dark.svg"
+                alt="Logo"
+                width={70}
+                height={70}
+                className="dark:hidden"
+              />
               <Image
                 src="/railtel_logo_light.svg"
                 alt="Logo"
@@ -110,11 +130,12 @@ export default function LoginPage() {
             </div>
             <div className="space-y-2">
               <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-sky-500 to-sky-600 bg-clip-text text-transparent">
-                {process.env.NEXT_PUBLIC_APP_NAME || 'My Secure Machines'}
+                {process.env.NEXT_PUBLIC_APP_NAME || "My Secure Machines"}
               </h1>
               <p className="text-muted-foreground flex items-center justify-center gap-2">
                 <Sparkles className="w-4 h-4 text-blue-500" />
-                {process.env.NEXT_PUBLIC_APP_TAGLINE || 'Secure Remote Desktop Access'}
+                {process.env.NEXT_PUBLIC_APP_TAGLINE ||
+                  "Secure Remote Desktop Access"}
               </p>
             </div>
           </div>
@@ -123,10 +144,15 @@ export default function LoginPage() {
           <Card className="border-2 shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-200">
             <CardHeader className="space-y-1">
               <CardTitle className="text-2xl font-bold">Login</CardTitle>
-              <CardDescription className="text-base">Enter your credentials to access the platform</CardDescription>
+              <CardDescription className="text-base">
+                Enter your credentials to access the platform
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={form.handleSubmit(performLogin)} className="space-y-5">
+              <form
+                onSubmit={form.handleSubmit(performLogin)}
+                className="space-y-5"
+              >
                 {/* Username Field */}
                 <div className="space-y-2">
                   <Label htmlFor="username" className="text-sm font-medium">
@@ -138,7 +164,7 @@ export default function LoginPage() {
                       id="username"
                       type="text"
                       autoComplete="username"
-                      {...form.register('username')}
+                      {...form.register("username")}
                       className="pl-10 h-12 transition-all focus-visible:ring-2 focus-visible:ring-blue-500"
                       placeholder="Enter your username"
                       disabled={isLoading}
@@ -162,7 +188,7 @@ export default function LoginPage() {
                       id="password"
                       type="password"
                       autoComplete="current-password"
-                      {...form.register('password')}
+                      {...form.register("password")}
                       className="pl-10 h-12 transition-all focus-visible:ring-2 focus-visible:ring-blue-500"
                       placeholder="Enter your password"
                       disabled={isLoading}
@@ -181,7 +207,9 @@ export default function LoginPage() {
                     <Checkbox
                       id="remember"
                       checked={rememberMe}
-                      onCheckedChange={(checked: any) => setRememberMe(checked as boolean)}
+                      onCheckedChange={(checked: any) =>
+                        setRememberMe(checked as boolean)
+                      }
                     />
                     <label
                       htmlFor="remember"
@@ -190,7 +218,12 @@ export default function LoginPage() {
                       Remember Me
                     </label>
                   </div>
-                  <Button type="button" variant="link" className="p-0 h-auto text-sm" disabled={isLoading}>
+                  <Button
+                    type="button"
+                    variant="link"
+                    className="p-0 h-auto text-sm"
+                    disabled={isLoading}
+                  >
                     Forgot Password
                   </Button>
                 </div>
@@ -219,7 +252,8 @@ export default function LoginPage() {
 
           {/* Footer */}
           <p className="text-center text-xs text-muted-foreground mt-8 animate-in fade-in duration-1000 delay-700">
-            © {new Date().getFullYear()} Secure Access Platform. All rights reserved.
+            © {new Date().getFullYear()} Secure Access Platform. All rights
+            reserved.
           </p>
         </div>
       </div>
