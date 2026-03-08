@@ -44,6 +44,7 @@ import {
 import { useAuthStore } from "@/lib/store";
 import { navigationItems, adminNavigationItems } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
+import Image from "next/image";
 
 export function AppSidebar() {
   const pathname = usePathname();
@@ -66,8 +67,21 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
               <a href="/dashboard" className="flex items-center gap-2">
-                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 text-white">
-                  <Shield className="size-4" />
+                <div className="flex aspect-square size-7 items-center justify-center">
+                  <Image
+                    src="/railtel_logo_dark.svg"
+                    alt="Logo"
+                    width={28}
+                    height={28}
+                    className="dark:hidden"
+                  />
+                  <Image
+                    src="/railtel_logo_light.svg"
+                    alt="Logo"
+                    width={28}
+                    height={28}
+                    className="hidden dark:block"
+                  />
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold">

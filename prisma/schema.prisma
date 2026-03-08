@@ -61,30 +61,30 @@ model LoginAttempt {
 // ─────────────────────────────────────────
 
 model UserSession {
-  id           String    @id @default(cuid())
+  id String @id @default(cuid())
 
   // Identity
-  username     String
-  role         String?
+  username String
+  role     String?
 
   // Network info (both sides)
-  clientIp     String?   // browser/client IP
-  serverIp     String?   // server/origin IP (from headers)
-  hostname     String?   // resolved hostname if available
-  userAgent    String?   // full UA string
+  clientIp  String? // browser/client IP
+  serverIp  String? // server/origin IP (from headers)
+  hostname  String? // resolved hostname if available
+  userAgent String? // full UA string
 
   // Timing
-  loginTime    DateTime  @default(now())
-  logoutTime   DateTime?
-  durationMin  Int?      // filled on logout
+  loginTime   DateTime  @default(now())
+  logoutTime  DateTime?
+  durationMin Int? // filled on logout
 
   // State
-  isActive     Boolean   @default(true)
-  logoutReason String?   // MANUAL, TIMEOUT, FORCED, EXPIRED
+  isActive     Boolean @default(true)
+  logoutReason String? // MANUAL, TIMEOUT, FORCED, EXPIRED
 
   // Extra metadata (JSON string)
   // e.g. { "browser": "Chrome", "os": "Ubuntu", "country": "IN" }
-  metadata     String?
+  metadata String?
 
   @@index([username])
   @@index([loginTime])
@@ -114,4 +114,25 @@ model Notice {
   @@index([isPinned])
   @@index([createdAt])
   @@map("notices")
+}
+
+model guacamole_user_available_ip {
+  id         Int     @id @default(autoincrement())
+  ip         String  @db.VarChar(256)
+  group_name String  @db.VarChar(128)
+  gateway    String? @db.VarChar(256)
+
+  user_id  Int?
+  username String? @db.VarChar(128)
+
+  start_date DateTime? @db.Timestamp(0)
+
+  is_available_user Int @default(0)
+
+  connection_id  Int?
+  container_name String? @db.VarChar(128)
+
+  @@index([user_id], map: "idx_guacamole_user_available_ip_user_id")
+  @@index([group_name], map: "idx_guacamole_user_available_ip_group_name")
+  @@index([ip], map: "idx_guacamole_user_available_ip_ip")
 }

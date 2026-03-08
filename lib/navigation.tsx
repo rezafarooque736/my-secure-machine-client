@@ -9,6 +9,7 @@ import {
   Clock,
   Key,
   Megaphone,
+  Network,
 } from "lucide-react";
 import React from "react";
 
@@ -99,6 +100,12 @@ export const adminNavigationItems: NavItem[] = [
     title: "Active Sessions",
     href: "/dashboard/admin/sessions",
     icon: Activity,
+    adminOnly: true,
+  },
+  {
+    title: "IP Management",
+    href: "/dashboard/admin/ips",
+    icon: Network,
     adminOnly: true,
   },
   {
