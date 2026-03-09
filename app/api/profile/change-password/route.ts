@@ -57,6 +57,20 @@ export async function PUT(request: NextRequest) {
     const token = p.get("token");
     const dataSource = p.get("dataSource") ?? "mysql";
     const username = p.get("username");
+
+    // Only admin-role users are permitted to change passwords.
+    const userRole = p.get("role");
+    if (userRole !== "admin") {
+      return NextResponse.json(
+        {
+          error:
+            "Only administrators are permitted to change passwords. Please contact your administrator.",
+          type: "RESTRICTED",
+        },
+        { status: 403 },
+      );
+    }
+
     const body = await request.json();
 
     if (!token || !username) {

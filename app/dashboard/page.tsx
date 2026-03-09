@@ -216,10 +216,30 @@ function StatCard({
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Section Header
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Protocol color helpers (update these too for richer colors) ──────────────
+function getProtocolGradient(proto: string) {
+  switch (proto) {
+    case "VNC":
+      return "from-emerald-500 to-teal-600";
+    case "SSH":
+      return "from-orange-500 to-amber-600";
+    default:
+      return "from-sky-500 to-blue-600"; // RDP
+  }
+}
 
+function getProtocolBadge(proto: string) {
+  switch (proto) {
+    case "VNC":
+      return "bg-emerald-500/10 text-emerald-600 border-emerald-500/25";
+    case "SSH":
+      return "bg-orange-500/10 text-orange-600 border-orange-500/25";
+    default:
+      return "bg-sky-500/10 text-sky-600 border-sky-500/25";
+  }
+}
+
+// ── SectionHeader ─────────────────────────────────────────────────────────────
 function SectionHeader({
   icon: Icon,
   title,
@@ -232,11 +252,13 @@ function SectionHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between px-3 pt-3 pb-2 border-b">
+    <div className="flex items-center justify-between px-3 pt-3 pb-2.5 border-b bg-muted/30 dark:bg-zinc-900/40 rounded-t-xl">
       <div className="flex items-center gap-2 min-w-0">
-        <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
+        <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+          <Icon className="h-3.5 w-3.5 text-primary" />
+        </div>
         <div className="min-w-0">
-          <p className="text-sm font-semibold leading-tight truncate">
+          <p className="text-sm font-semibold leading-tight truncate text-foreground">
             {title}
           </p>
           {sub && (
@@ -249,10 +271,7 @@ function SectionHeader({
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// My Computer Card — beautiful button-like card per connection
-// ─────────────────────────────────────────────────────────────────────────────
-
+// ── ComputerCard ──────────────────────────────────────────────────────────────
 function ComputerCard({
   conn,
   onClick,
@@ -270,22 +289,39 @@ function ComputerCard({
     <button
       type="button"
       onClick={onClick}
-      className="group w-full text-left flex items-center gap-3 px-3 py-2.5
-        rounded-xl border border-border bg-card
-        hover:border-primary/40 hover:bg-accent hover:shadow-md
-        active:scale-[0.98] transition-all duration-150 cursor-pointer"
+      className="group w-full text-left flex items-center gap-3 px-3 py-3
+    rounded-xl cursor-pointer
+    bg-gradient-to-r from-muted/60 to-muted/30
+    dark:from-zinc-800/80 dark:to-zinc-900/60
+    border border-sky-500/40 dark:border-sky-400/30
+    shadow-sm shadow-sky-500/20 dark:shadow-sky-400/25
+    ring-1 ring-inset ring-sky-400/20 dark:ring-sky-500/15
+    [box-shadow:0_0_0_1px_rgba(56,189,248,0.15),0_2px_8px_rgba(56,189,248,0.12),0_1px_2px_rgba(0,0,0,0.08)]
+    dark:[box-shadow:0_0_0_1px_rgba(56,189,248,0.2),0_2px_12px_rgba(56,189,248,0.18),0_1px_3px_rgba(0,0,0,0.4)]
+    hover:border-sky-400/70 dark:hover:border-sky-400/60
+    hover:[box-shadow:0_0_0_1px_rgba(56,189,248,0.3),0_4px_16px_rgba(56,189,248,0.25),0_1px_3px_rgba(0,0,0,0.1)]
+    dark:hover:[box-shadow:0_0_0_1px_rgba(56,189,248,0.4),0_4px_20px_rgba(56,189,248,0.35),0_2px_4px_rgba(0,0,0,0.5)]
+    active:scale-[0.985] active:shadow-sm
+    transition-all duration-200"
     >
+      {/* Subtle glow layer behind — always visible, intensifies on hover */}
+      <span
+        className="pointer-events-none absolute inset-0 rounded-xl opacity-40
+          group-hover:opacity-100 transition-opacity duration-300"
+      />
+
       {/* Protocol icon */}
       <div
-        className={`shrink-0 flex items-center justify-center rounded-lg p-2.5
-          transition-colors duration-150 ${iconBg}`}
+        className={`relative shrink-0 flex items-center justify-center rounded-lg p-2.5
+          shadow-sm ring-1 ring-inset ring-white/20 dark:ring-white/10
+          transition-transform duration-200 group-hover:scale-105 ${iconBg}`}
       >
         <Tv2 className={`h-4 w-4 ${iconColor}`} />
       </div>
 
       {/* Name + badges */}
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold truncate group-hover:text-primary transition-colors">
+      <div className="relative flex-1 min-w-0">
+        <p className="text-sm font-semibold truncate text-foreground group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors duration-200">
           {conn.name}
         </p>
         <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
@@ -295,24 +331,36 @@ function ComputerCard({
           >
             {proto}
           </Badge>
-          {isActive && (
-            <span className="flex items-center gap-0.5 text-xs text-green-600 font-medium">
+          {isActive ? (
+            <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400 font-medium">
               <span className="relative flex h-1.5 w-1.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
                 <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-500" />
               </span>
               Live
             </span>
+          ) : (
+            <span className="text-xs text-muted-foreground/60 font-medium">
+              Ready
+            </span>
           )}
         </div>
       </div>
 
-      {/* Arrow */}
-      <ArrowRight
-        className="h-4 w-4 text-muted-foreground shrink-0
-          group-hover:text-primary group-hover:translate-x-0.5
-          transition-all duration-150"
-      />
+      {/* Connect CTA */}
+      <div
+        className="relative shrink-0 flex items-center gap-1.5
+        px-2.5 py-1 rounded-lg
+        bg-sky-500/8 dark:bg-sky-400/10
+        border border-sky-400/25 dark:border-sky-400/20
+        text-sky-600 dark:text-sky-400 text-xs font-semibold
+        group-hover:bg-sky-500 group-hover:border-sky-500 group-hover:text-white
+        group-hover:shadow-[0_0_12px_rgba(14,165,233,0.5)]
+        transition-all duration-200"
+      >
+        Connect
+        <ArrowRight className="h-3 w-3 transition-transform duration-200 group-hover:translate-x-0.5" />
+      </div>
     </button>
   );
 }
@@ -465,7 +513,7 @@ export default function DashboardPage() {
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-7 text-xs px-2"
+                className="h-7 text-xs px-2 hover:text-primary"
                 onClick={() => router.push("/dashboard/connections")}
               >
                 Browse <ChevronRight className="h-3 w-3 ml-0.5" />
@@ -473,12 +521,12 @@ export default function DashboardPage() {
             }
           />
           <div
-            className="flex flex-col gap-1.5 p-2 overflow-y-auto"
+            className="flex flex-col gap-1.5 p-2.5 overflow-y-auto"
             style={{ maxHeight: "260px" }}
           >
             {loading ? (
               [1, 2, 3, 4].map((i) => (
-                <Skeleton key={i} className="h-14 w-full rounded-xl" />
+                <Skeleton key={i} className="h-[62px] w-full rounded-xl" />
               ))
             ) : connections.length > 0 ? (
               connections.map((conn) => (
@@ -489,9 +537,9 @@ export default function DashboardPage() {
                 />
               ))
             ) : (
-              <div className="flex flex-col items-center justify-center py-10 gap-2">
-                <div className="p-3 rounded-full bg-muted">
-                  <Monitor className="h-6 w-6 text-muted-foreground/50" />
+              <div className="flex flex-col items-center justify-center py-10 gap-3">
+                <div className="h-12 w-12 rounded-2xl bg-muted flex items-center justify-center">
+                  <Monitor className="h-6 w-6 text-muted-foreground/40" />
                 </div>
                 <p className="text-xs text-muted-foreground text-center">
                   No computers available

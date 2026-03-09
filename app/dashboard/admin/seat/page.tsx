@@ -177,7 +177,7 @@ export default function IPManagementPage() {
     if (!user) return;
     setLoading(true);
     try {
-      const res = await axios.get("/api/admin/ips");
+      const res = await axios.get("/api/admin/seats");
       setIps(res.data?.data ?? res.data ?? []);
     } catch (e: any) {
       toast.error(e?.response?.data?.error ?? "Failed to load IPs");
@@ -240,7 +240,7 @@ export default function IPManagementPage() {
 
     setEditing(true);
     try {
-      await axios.put("/api/admin/ips", [
+      await axios.put("/api/admin/seats", [
         {
           id: editEntry.id,
           ip: editForm.ip.trim(),
@@ -264,7 +264,7 @@ export default function IPManagementPage() {
     if (!deleteTarget) return;
     setActionBusy(deleteTarget.id);
     try {
-      await axios.delete(`/api/admin/ips/${deleteTarget.id}`);
+      await axios.delete(`/api/admin/seats/${deleteTarget.id}`);
       toast.success(`IP ${deleteTarget.ip} deleted`);
       setDeleteTarget(null);
       fetchIps();
@@ -309,7 +309,7 @@ export default function IPManagementPage() {
 
     setAdding(true);
     try {
-      await axios.post("/api/admin/ips", {
+      await axios.post("/api/admin/seats", {
         count: totalCount,
         allocations,
       });
@@ -336,7 +336,7 @@ export default function IPManagementPage() {
         <div>
           <h1 className="text-xl font-bold tracking-tight flex items-center gap-2">
             <Network className="h-5 w-5 text-primary" />
-            IP Management
+            Seat Management
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
             Manage available IP addresses and group assignments.
@@ -361,7 +361,7 @@ export default function IPManagementPage() {
             onClick={() => setShowAdd(true)}
           >
             <Plus className="h-3.5 w-3.5" />
-            Add IPs
+            Add Seats
           </Button>
         </div>
       </div>
@@ -441,7 +441,7 @@ export default function IPManagementPage() {
                       <p className="text-xs text-muted-foreground">
                         {search || filterGroup !== "all"
                           ? "No IPs match your filters."
-                          : "No IPs configured. Click 'Add IPs' to get started."}
+                          : "No IPs configured. Click 'Add Seats' to get started."}
                       </p>
                     </div>
                   </td>
@@ -672,7 +672,7 @@ export default function IPManagementPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base">
               <Plus className="h-4 w-4 text-primary" />
-              Add New IPs
+              Add New Seats
             </DialogTitle>
             <DialogDescription className="text-xs">
               Configure new IP addresses with group assignments.

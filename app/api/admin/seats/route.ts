@@ -14,7 +14,7 @@ function nextIp(ip: string): string {
 const IPv4 =
   /^(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)$/;
 
-// ── GET /api/admin/ips ────────────────────────────────────────────────────────
+// ── GET /api/admin/seats ────────────────────────────────────────────────────────
 export async function GET(request: NextRequest) {
   try {
     const ips = await prisma.guacamole_user_available_ip.findMany({
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// ── POST /api/admin/ips ───────────────────────────────────────────────────────
+// ── POST /api/admin/seats ───────────────────────────────────────────────────────
 // Body: { count, allocations: [{ amount, group_name, firstIp?, gateway }] }
 export async function POST(request: NextRequest) {
   try {
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// ── PUT /api/admin/ips ────────────────────────────────────────────────────────
+// ── PUT /api/admin/seats ────────────────────────────────────────────────────────
 // Body: [{ id, ip, group_name, gateway }]
 export async function PUT(request: NextRequest) {
   try {

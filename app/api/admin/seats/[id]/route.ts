@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-// ── DELETE /api/admin/ips/[id] ───────────────────────────────────────────────
+// ── DELETE /api/admin/seats/[id] ───────────────────────────────────────────────
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },

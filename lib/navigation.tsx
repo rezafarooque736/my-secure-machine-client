@@ -36,19 +36,6 @@ export const navigationItems: NavItem[] = [
     href: "/dashboard",
     icon: LayoutDashboard,
   },
-  // {
-  //   // Collapsible group — expands to show sub-pages
-  //   title: "All Desktops",
-  //   href: "/dashboard/connections",
-  //   icon: Monitor,
-  //   items: [
-  //     {
-  //       title: "All Connections",
-  //       href: "/dashboard/connections",
-  //       icon: Monitor,
-  //     },
-  //   ],
-  // },
   {
     // Collapsible group — expands to show sub-pages
     title: "My Computers",
@@ -103,8 +90,8 @@ export const adminNavigationItems: NavItem[] = [
     adminOnly: true,
   },
   {
-    title: "IP Management",
-    href: "/dashboard/admin/ips",
+    title: "Seat Management",
+    href: "/dashboard/admin/seat",
     icon: Network,
     adminOnly: true,
   },

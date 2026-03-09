@@ -230,6 +230,7 @@ export default function ChangePasswordPage() {
             token: user.authToken,
             dataSource: user.dataSource,
             username: user.username,
+            role: user.role,
           },
         },
       );
@@ -249,6 +250,52 @@ export default function ChangePasswordPage() {
       setLoading(false);
     }
   };
+
+  // ── Non-admin blocked state ────────────────────────────────────────────────
+  if (user?.role !== "admin") {
+    return (
+      <div className="min-h-[calc(100vh-4rem)] flex items-start justify-center p-4 pt-8 animate-in fade-in duration-300">
+        <div className="w-full max-w-md space-y-4">
+          <button
+            type="button"
+            onClick={() => router.push("/dashboard/profile")}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Back to Profile
+          </button>
+
+          <Card>
+            <CardContent className="pt-8 pb-6 flex flex-col items-center gap-4 text-center">
+              <div className="h-16 w-16 rounded-full bg-destructive/10 flex items-center justify-center">
+                <KeyRound className="h-8 w-8 text-destructive" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold">Permission Denied</h2>
+                <p className="text-sm text-muted-foreground mt-1 max-w-xs">
+                  Password changes are restricted to administrators only. Please
+                  contact your system administrator to update your password.
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs gap-1.5 mt-2"
+                onClick={() => router.push("/dashboard/profile")}
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                Back to Profile
+              </Button>
+            </CardContent>
+          </Card>
+
+          <p className="text-center text-xs text-muted-foreground px-4">
+            🔒 Your password is managed by your system administrator.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // ─────────────────────────────────────────────────────────────────────────
   // Render
