@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { prisma } from '@/lib/prisma';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -23,8 +24,8 @@ export async function GET(request: NextRequest) {
     // Build where clause based on role
     const where: any = {};
 
-    // If not admin, only show their own logs
-    if (role !== 'admin') {
+    // If user, only show their own logs
+    if (role == 'user') {
       where.username = username;
     }
 
@@ -66,29 +67,6 @@ export async function GET(request: NextRequest) {
       take: pageSize,
     });
 
-    // Get statistics (admin only)
-    let statistics = null;
-    if (role === 'admin') {
-      const [totalLogs, authLogs, connectionLogs, errorLogs, uniqueUsers] = await Promise.all([
-        prisma.activityLog.count(),
-        prisma.activityLog.count({ where: { category: 'AUTH' } }),
-        prisma.activityLog.count({ where: { category: 'CONNECTION' } }),
-        prisma.activityLog.count({ where: { level: 'ERROR' } }),
-        prisma.activityLog.groupBy({
-          by: ['username'],
-          _count: true,
-        }),
-      ]);
-
-      statistics = {
-        totalLogs,
-        authLogs,
-        connectionLogs,
-        errorLogs,
-        uniqueUsers: uniqueUsers.length,
-      };
-    }
-
     return NextResponse.json({
       logs,
       pagination: {
@@ -97,7 +75,6 @@ export async function GET(request: NextRequest) {
         total,
         totalPages: Math.ceil(total / pageSize),
       },
-      statistics,
     });
   } catch (error: any) {
     console.error('Error fetching activity logs:', error);

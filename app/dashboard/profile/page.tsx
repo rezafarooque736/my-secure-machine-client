@@ -1,17 +1,17 @@
-"use client";
+'use client';
 
-import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import { useAuthStore } from "@/lib/store";
-import axios from "axios";
-import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Separator } from "@/components/ui/separator";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useEffect, useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuthStore } from '@/lib/store';
+import axios from 'axios';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Separator } from '@/components/ui/separator';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   User,
   Mail,
@@ -28,7 +28,7 @@ import {
   CalendarClock,
   Hash,
   Briefcase,
-} from "lucide-react";
+} from 'lucide-react';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -40,7 +40,7 @@ interface ProfileData {
   fullName: string | null;
   organization: string | null;
   organizationalRole: string | null;
-  role: "admin" | "user";
+  role: 'user';
   lastActive: string | null;
   accountCreated: string | null;
 }
@@ -65,20 +65,20 @@ interface EditForm {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function formatDate(iso: string | null | undefined): string {
-  if (!iso) return "—";
+  if (!iso) return '—';
   try {
-    return new Date(iso).toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
+    return new Date(iso).toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
     });
   } catch {
-    return "—";
+    return '—';
   }
 }
 
 function formatDuration(minutes: number): string {
-  if (!minutes) return "0h 0m";
+  if (!minutes) return '0h 0m';
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   return `${h}h ${m}m`;
@@ -86,7 +86,7 @@ function formatDuration(minutes: number): string {
 
 function getInitials(name: string | null, username: string): string {
   if (name?.trim()) {
-    const parts = name.trim().split(" ");
+    const parts = name.trim().split(' ');
     return parts.length >= 2
       ? `${parts[0][0]}${parts[1][0]}`.toUpperCase()
       : parts[0].substring(0, 2).toUpperCase();
@@ -120,9 +120,7 @@ function InfoRow({
           <Skeleton className="h-4 w-32 mt-1" />
         ) : (
           <p className="text-sm font-medium truncate mt-0.5">
-            {value || (
-              <span className="text-muted-foreground italic">Not set</span>
-            )}
+            {value || <span className="text-muted-foreground italic">Not set</span>}
           </p>
         )}
       </div>
@@ -176,10 +174,10 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
 
   const [form, setForm] = useState<EditForm>({
-    fullName: "",
-    email: "",
-    organization: "",
-    organizationalRole: "",
+    fullName: '',
+    email: '',
+    organization: '',
+    organizationalRole: '',
   });
 
   // ── Fetch profile ──────────────────────────────────────────────────────────
@@ -187,7 +185,7 @@ export default function ProfilePage() {
     if (!user) return;
     setProfileLoading(true);
     try {
-      const res = await axios.get("/api/profile", {
+      const res = await axios.get('/api/profile', {
         params: {
           token: user.authToken,
           dataSource: user.dataSource,
@@ -196,13 +194,13 @@ export default function ProfilePage() {
       });
       setProfile(res.data);
       setForm({
-        fullName: res.data.fullName ?? "",
-        email: res.data.email ?? "",
-        organization: res.data.organization ?? "",
-        organizationalRole: res.data.organizationalRole ?? "",
+        fullName: res.data.fullName ?? '',
+        email: res.data.email ?? '',
+        organization: res.data.organization ?? '',
+        organizationalRole: res.data.organizationalRole ?? '',
       });
     } catch (err) {
-      toast.error("Failed to load profile");
+      toast.error('Failed to load profile');
     } finally {
       setProfileLoading(false);
     }
@@ -213,7 +211,7 @@ export default function ProfilePage() {
     if (!user) return;
     setStatsLoading(true);
     try {
-      const res = await axios.get("/api/stats/activity", {
+      const res = await axios.get('/api/stats/activity', {
         params: {
           token: user.authToken,
           dataSource: user.dataSource,
@@ -239,7 +237,7 @@ export default function ProfilePage() {
     setSaving(true);
     try {
       await axios.put(
-        "/api/profile",
+        '/api/profile',
         {
           fullName: form.fullName,
           email: form.email,
@@ -254,11 +252,12 @@ export default function ProfilePage() {
           },
         },
       );
-      toast.success("Profile updated successfully");
+      toast.success('Profile updated successfully');
       setIsEditing(false);
       fetchProfile();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
-      toast.error(err?.response?.data?.error ?? "Failed to update profile");
+      toast.error(err?.response?.data?.error ?? 'Failed to update profile');
     } finally {
       setSaving(false);
     }
@@ -267,18 +266,12 @@ export default function ProfilePage() {
   const handleCancelEdit = () => {
     setIsEditing(false);
     setForm({
-      fullName: profile?.fullName ?? "",
-      email: profile?.email ?? "",
-      organization: profile?.organization ?? "",
-      organizationalRole: profile?.organizationalRole ?? "",
+      fullName: profile?.fullName ?? '',
+      email: profile?.email ?? '',
+      organization: profile?.organization ?? '',
+      organizationalRole: profile?.organizationalRole ?? '',
     });
   };
-
-  // ── Role badge ─────────────────────────────────────────────────────────────
-  const roleBadgeClass =
-    profile?.role === "admin"
-      ? "bg-purple-500/10 text-purple-600 border-purple-500/20"
-      : "bg-blue-500/10 text-blue-600 border-blue-500/20";
 
   // ─────────────────────────────────────────────────────────────────────────
   // Render
@@ -289,9 +282,7 @@ export default function ProfilePage() {
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h1 className="text-xl font-bold tracking-tight">My Profile</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            View and manage your account information
-          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">View and manage your account information</p>
         </div>
         <Button
           variant="outline"
@@ -303,9 +294,7 @@ export default function ProfilePage() {
           }}
           disabled={profileLoading}
         >
-          <RefreshCw
-            className={`h-3.5 w-3.5 ${profileLoading ? "animate-spin" : ""}`}
-          />
+          <RefreshCw className={`h-3.5 w-3.5 ${profileLoading ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
       </div>
@@ -318,7 +307,7 @@ export default function ProfilePage() {
             {/* Avatar circle */}
             <div className="relative">
               <div className="h-20 w-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold shadow-lg select-none">
-                {getInitials(profile?.fullName ?? null, user?.username ?? "U")}
+                {getInitials(profile?.fullName ?? null, user?.username ?? 'U')}
               </div>
               <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-green-500 border-2 border-background" />
             </div>
@@ -332,18 +321,14 @@ export default function ProfilePage() {
             ) : (
               <>
                 <div>
-                  <p className="font-bold text-base leading-tight">
-                    {profile?.fullName || user?.username}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    @{user?.username}
-                  </p>
+                  <p className="font-bold text-base leading-tight">{profile?.fullName || user?.username}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">@{user?.username}</p>
                 </div>
                 <Badge
                   variant="outline"
-                  className={`text-xs ${roleBadgeClass}`}
+                  className={`text-xs bg-blue-500/10 text-blue-600 border-blue-500/20`}
                 >
-                  {profile?.role?.toUpperCase() ?? "USER"}
+                  {profile?.role?.toUpperCase() ?? 'USER'}
                 </Badge>
               </>
             )}
@@ -389,15 +374,6 @@ export default function ProfilePage() {
                   </Button>
                 </div>
               )}
-              <Button
-                size="sm"
-                variant="ghost"
-                className="w-full h-8 text-xs gap-1.5 text-muted-foreground"
-                onClick={() => router.push("/dashboard/change-password")}
-              >
-                <KeyRound className="h-3.5 w-3.5" />
-                Change Password
-              </Button>
             </div>
           </CardContent>
         </Card>
@@ -407,7 +383,7 @@ export default function ProfilePage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <User className="h-4 w-4 text-primary" />
-              {isEditing ? "Edit Profile" : "Profile Details"}
+              {isEditing ? 'Edit Profile' : 'Profile Details'}
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
@@ -421,9 +397,7 @@ export default function ProfilePage() {
                   <Input
                     id="fullName"
                     value={form.fullName}
-                    onChange={(e) =>
-                      setForm({ ...form, fullName: e.target.value })
-                    }
+                    onChange={(e) => setForm({ ...form, fullName: e.target.value })}
                     placeholder="e.g. John Doe"
                     className="h-8 text-xs"
                     disabled={saving}
@@ -438,9 +412,7 @@ export default function ProfilePage() {
                     id="email"
                     type="email"
                     value={form.email}
-                    onChange={(e) =>
-                      setForm({ ...form, email: e.target.value })
-                    }
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
                     placeholder="e.g. user@example.com"
                     className="h-8 text-xs"
                     disabled={saving}
@@ -454,9 +426,7 @@ export default function ProfilePage() {
                   <Input
                     id="org"
                     value={form.organization}
-                    onChange={(e) =>
-                      setForm({ ...form, organization: e.target.value })
-                    }
+                    onChange={(e) => setForm({ ...form, organization: e.target.value })}
                     placeholder="e.g. Railtel"
                     className="h-8 text-xs"
                     disabled={saving}
@@ -470,9 +440,7 @@ export default function ProfilePage() {
                   <Input
                     id="orgRole"
                     value={form.organizationalRole}
-                    onChange={(e) =>
-                      setForm({ ...form, organizationalRole: e.target.value })
-                    }
+                    onChange={(e) => setForm({ ...form, organizationalRole: e.target.value })}
                     placeholder="e.g. Network Engineer"
                     className="h-8 text-xs"
                     disabled={saving}
@@ -484,34 +452,15 @@ export default function ProfilePage() {
                   <Label className="text-xs font-semibold text-muted-foreground">
                     Username (cannot be changed)
                   </Label>
-                  <Input
-                    value={user?.username ?? ""}
-                    disabled
-                    className="h-8 text-xs bg-muted"
-                  />
+                  <Input value={user?.username ?? ''} disabled className="h-8 text-xs bg-muted" />
                 </div>
               </div>
             ) : (
               /* ── Read-only info rows ─────────────────────────────────────── */
               <div className="divide-y">
-                <InfoRow
-                  icon={User}
-                  label="Full Name"
-                  value={profile?.fullName}
-                  loading={profileLoading}
-                />
-                <InfoRow
-                  icon={Hash}
-                  label="Username"
-                  value={user?.username}
-                  loading={profileLoading}
-                />
-                <InfoRow
-                  icon={Mail}
-                  label="Email Address"
-                  value={profile?.email}
-                  loading={profileLoading}
-                />
+                <InfoRow icon={User} label="Full Name" value={profile?.fullName} loading={profileLoading} />
+                <InfoRow icon={Hash} label="Username" value={user?.username} loading={profileLoading} />
+                <InfoRow icon={Mail} label="Email Address" value={profile?.email} loading={profileLoading} />
                 <InfoRow
                   icon={Building2}
                   label="Organization"
@@ -530,11 +479,7 @@ export default function ProfilePage() {
                   value={profile?.role?.toUpperCase()}
                   loading={profileLoading}
                 />
-                <InfoRow
-                  icon={Monitor}
-                  label="Data Source"
-                  value={user?.dataSource}
-                />
+                <InfoRow icon={Monitor} label="Data Source" value={user?.dataSource} />
                 <InfoRow
                   icon={CalendarClock}
                   label="Last Active"
@@ -560,7 +505,7 @@ export default function ProfilePage() {
             <StatCard
               icon={Monitor}
               label="Total Sessions"
-              value={stats?.totalSessions?.toString() ?? "0"}
+              value={stats?.totalSessions?.toString() ?? '0'}
               color="bg-blue-500/10 text-blue-500"
               loading={statsLoading}
             />
@@ -574,14 +519,14 @@ export default function ProfilePage() {
             <StatCard
               icon={Activity}
               label="Active Today"
-              value={stats?.activeToday?.toString() ?? "0"}
+              value={stats?.activeToday?.toString() ?? '0'}
               color="bg-green-500/10 text-green-500"
               loading={statsLoading}
             />
             <StatCard
               icon={Shield}
               label="Top Protocol"
-              value={stats?.mostUsedProtocol ?? "N/A"}
+              value={stats?.mostUsedProtocol ?? 'N/A'}
               color="bg-orange-500/10 text-orange-500"
               loading={statsLoading}
             />

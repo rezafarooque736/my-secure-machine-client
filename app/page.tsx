@@ -1,35 +1,25 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { z } from "zod";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useAuthStore } from "@/lib/store";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import { toast } from "sonner";
-import axios from "axios";
-import {
-  Loader2,
-  ShieldCheck,
-  KeyRound,
-  User,
-  Wifi,
-  Monitor,
-  Lock,
-  Globe,
-} from "lucide-react";
-import { ThemeToggle } from "@/components/theme-toggle";
-import Image from "next/image";
-import { cn } from "@/lib/utils";
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { z } from 'zod';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useAuthStore } from '@/lib/store';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { toast } from 'sonner';
+import axios from 'axios';
+import { Loader2, ShieldCheck, KeyRound, User, Wifi, Monitor, Lock, Globe } from 'lucide-react';
+import { ThemeToggle } from '@/components/theme-toggle';
+import Image from 'next/image';
+import { cn } from '@/lib/utils';
 
 const createLoginSchema = () =>
   z.object({
-    username: z.string().min(1, "Username is required"),
-    password: z.string().min(1, "Password is required"),
+    username: z.string().min(1, 'Username is required'),
+    password: z.string().min(1, 'Password is required'),
   });
 
 type LoginValues = { username: string; password: string };
@@ -49,9 +39,9 @@ function TechCard({
   return (
     <div
       className={cn(
-        "absolute flex items-center gap-3 bg-white/10 dark:bg-white/5 backdrop-blur-md",
-        "border border-white/20 rounded-2xl px-4 py-3 shadow-xl",
-        "animate-in fade-in slide-in-from-bottom-4 duration-700",
+        'absolute flex items-center gap-3 bg-white/10 dark:bg-white/5 backdrop-blur-md',
+        'border border-white/20 rounded-2xl px-4 py-3 shadow-xl',
+        'animate-in fade-in slide-in-from-bottom-4 duration-700',
         className,
       )}
     >
@@ -77,18 +67,18 @@ export default function LoginPage() {
   const loginSchema = createLoginSchema();
   const form = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { username: "", password: "" },
+    defaultValues: { username: '', password: '' },
   });
 
   useEffect(() => setIsHydrated(true), []);
   useEffect(() => {
-    if (isHydrated && isAuthenticated) router.push("/dashboard");
+    if (isHydrated && isAuthenticated) router.push('/dashboard');
   }, [isHydrated, isAuthenticated, router]);
 
   const performLogin = async (values: LoginValues) => {
     setIsLoading(true);
     try {
-      const res = await axios.post("/api/auth/login", {
+      const res = await axios.post('/api/auth/login', {
         username: values.username.trim(),
         password: values.password.trim(),
       });
@@ -96,14 +86,14 @@ export default function LoginPage() {
         authToken: res.data.authToken,
         username: res.data.username,
         dataSource: res.data.dataSource,
-        availableDataSources: res.data.availableDataSources ?? ["mysql"],
+        availableDataSources: res.data.availableDataSources ?? ['mysql'],
         role: res.data.role,
         sessionId: res.data.sessionId,
       });
-      router.push("/dashboard");
+      router.push('/dashboard');
     } catch (error: any) {
-      toast.error("Login failed", {
-        description: error.response?.data?.error || "Invalid credentials",
+      toast.error('Login failed', {
+        description: error.response?.data?.error || 'Invalid credentials',
       });
     } finally {
       setIsLoading(false);
@@ -124,8 +114,8 @@ export default function LoginPage() {
           className="absolute inset-0 opacity-[0.07]"
           style={{
             backgroundImage:
-              "linear-gradient(white 1px, transparent 1px), linear-gradient(90deg, white 1px, transparent 1px)",
-            backgroundSize: "40px 40px",
+              'linear-gradient(white 1px, transparent 1px), linear-gradient(90deg, white 1px, transparent 1px)',
+            backgroundSize: '40px 40px',
           }}
         />
 
@@ -173,17 +163,16 @@ export default function LoginPage() {
               <span className="text-sky-300">Access Platform</span>
             </h2>
             <p className="text-white/70 text-base leading-relaxed">
-              Enterprise-grade remote desktop management with military-level
-              security protocols.
+              Enterprise-grade remote desktop management with military-level security protocols.
             </p>
           </div>
 
           {/* Stats row */}
           <div className="flex items-center justify-center gap-8 pt-4">
             {[
-              { value: "256-bit", label: "Encryption" },
-              { value: "99.9%", label: "Uptime" },
-              { value: "24/7", label: "Support" },
+              { value: '256-bit', label: 'Encryption' },
+              { value: '99.9%', label: 'Uptime' },
+              { value: '24/7', label: 'Support' },
             ].map((stat) => (
               <div key={stat.label} className="text-center">
                 <p className="text-2xl font-bold text-white">{stat.value}</p>
@@ -208,11 +197,11 @@ export default function LoginPage() {
         </div>
 
         {/* Subtle background texture for right panel */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-sky-50/50 via-transparent to-transparent dark:from-sky-950/20 pointer-events-none" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,var(--tw-gradient-stops))] from-sky-50/50 via-transparent to-transparent dark:from-sky-950/20 pointer-events-none" />
 
         {/* Form area */}
         <div className="flex-1 flex flex-col items-center justify-center px-8 sm:px-12 lg:px-16 relative z-10">
-          <div className="w-full max-w-[400px] space-y-8">
+          <div className="w-full max-w-100 space-y-8">
             {/* Logo + brand */}
             <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-700">
               <div className="flex items-center gap-3">
@@ -234,11 +223,10 @@ export default function LoginPage() {
                 </div>
                 <div>
                   <h1 className="text-xl font-bold text-zinc-900 dark:text-white leading-tight">
-                    {process.env.NEXT_PUBLIC_APP_NAME || "My Secure Machines"}
+                    {process.env.NEXT_PUBLIC_APP_NAME || 'My Secure Machines'}
                   </h1>
                   <p className="text-xs text-zinc-400 dark:text-zinc-500">
-                    {process.env.NEXT_PUBLIC_APP_TAGLINE ||
-                      "Secure Remote Desktop Access"}
+                    {process.env.NEXT_PUBLIC_APP_TAGLINE || 'Secure Remote Desktop Access'}
                   </p>
                 </div>
               </div>
@@ -260,19 +248,14 @@ export default function LoginPage() {
             >
               {/* Username */}
               <div className="space-y-1.5">
-                <Label
-                  htmlFor="username"
-                  className="text-sm font-semibold text-zinc-700 dark:text-zinc-300"
-                >
+                <Label htmlFor="username" className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
                   Username
                 </Label>
                 <div className="relative group">
                   <div
                     className={cn(
-                      "absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors duration-200",
-                      focusedField === "username"
-                        ? "text-sky-500"
-                        : "text-zinc-400",
+                      'absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors duration-200',
+                      focusedField === 'username' ? 'text-sky-500' : 'text-zinc-400',
                     )}
                   >
                     <User className="h-4 w-4" />
@@ -281,16 +264,16 @@ export default function LoginPage() {
                     id="username"
                     type="text"
                     autoComplete="username"
-                    {...form.register("username")}
-                    onFocus={() => setFocusedField("username")}
+                    {...form.register('username')}
+                    onFocus={() => setFocusedField('username')}
                     onBlur={() => setFocusedField(null)}
                     className={cn(
-                      "pl-10 h-12 text-sm rounded-xl border-2 bg-zinc-50 dark:bg-zinc-900",
-                      "transition-all duration-200",
-                      "focus-visible:ring-0 focus-visible:border-sky-500",
-                      focusedField === "username"
-                        ? "border-sky-500 bg-white dark:bg-zinc-800 shadow-sm shadow-sky-500/10"
-                        : "border-zinc-200 dark:border-zinc-800",
+                      'pl-10 h-12 text-sm rounded-xl border-2 bg-zinc-50 dark:bg-zinc-900',
+                      'transition-all duration-200',
+                      'focus-visible:ring-0 focus-visible:border-sky-500',
+                      focusedField === 'username'
+                        ? 'border-sky-500 bg-white dark:bg-zinc-800 shadow-sm shadow-sky-500/10'
+                        : 'border-zinc-200 dark:border-zinc-800',
                     )}
                     placeholder="Enter your username"
                     disabled={isLoading}
@@ -309,10 +292,8 @@ export default function LoginPage() {
                 <div className="relative">
                   <div
                     className={cn(
-                      "absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors duration-200",
-                      focusedField === "password"
-                        ? "text-sky-500"
-                        : "text-zinc-400",
+                      'absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors duration-200',
+                      focusedField === 'password' ? 'text-sky-500' : 'text-zinc-400',
                     )}
                   >
                     <KeyRound className="h-4 w-4" />
@@ -321,16 +302,16 @@ export default function LoginPage() {
                     id="password"
                     type="password"
                     autoComplete="current-password"
-                    {...form.register("password")}
-                    onFocus={() => setFocusedField("password")}
+                    {...form.register('password')}
+                    onFocus={() => setFocusedField('password')}
                     onBlur={() => setFocusedField(null)}
                     className={cn(
-                      "pl-10 h-12 text-sm rounded-xl border-2 bg-zinc-50 dark:bg-zinc-900",
-                      "transition-all duration-200",
-                      "focus-visible:ring-0 focus-visible:border-sky-500",
-                      focusedField === "password"
-                        ? "border-sky-500 bg-white dark:bg-zinc-800 shadow-sm shadow-sky-500/10"
-                        : "border-zinc-200 dark:border-zinc-800",
+                      'pl-10 h-12 text-sm rounded-xl border-2 bg-zinc-50 dark:bg-zinc-900',
+                      'transition-all duration-200',
+                      'focus-visible:ring-0 focus-visible:border-sky-500',
+                      focusedField === 'password'
+                        ? 'border-sky-500 bg-white dark:bg-zinc-800 shadow-sm shadow-sky-500/10'
+                        : 'border-zinc-200 dark:border-zinc-800',
                     )}
                     placeholder="Enter your password"
                     disabled={isLoading}
@@ -349,12 +330,12 @@ export default function LoginPage() {
                 type="submit"
                 disabled={isLoading}
                 className={cn(
-                  "w-full h-12 text-sm font-semibold rounded-xl transition-all duration-300",
-                  "bg-gradient-to-r from-sky-500 to-blue-600",
-                  "hover:from-sky-600 hover:to-blue-700",
-                  "shadow-lg shadow-sky-500/25 hover:shadow-sky-500/40",
-                  "hover:scale-[1.01] active:scale-[0.99]",
-                  "disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100",
+                  'w-full h-12 text-sm font-semibold rounded-xl transition-all duration-300',
+                  'bg-gradient-to-r from-sky-500 to-blue-600',
+                  'hover:from-sky-600 hover:to-blue-700',
+                  'shadow-lg shadow-sky-500/25 hover:shadow-sky-500/40',
+                  'hover:scale-[1.01] active:scale-[0.99]',
+                  'disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100',
                 )}
               >
                 {isLoading ? (
@@ -381,8 +362,7 @@ export default function LoginPage() {
 
         {/* Footer */}
         <div className="relative z-10 pb-6 text-center text-xs text-zinc-300 dark:text-zinc-700">
-          © {new Date().getFullYear()} Secure Access Platform. All rights
-          reserved.
+          © {new Date().getFullYear()} Secure Access Platform. All rights reserved.
         </div>
       </div>
     </div>

@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
-import axios from "axios";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { NextRequest, NextResponse } from 'next/server';
+import axios from 'axios';
 
-const guacBase = () =>
-  `http://${process.env.NEXT_PUBLIC_GUACAMOLE_URL ?? "localhost:8080/guacamole"}`;
+const guacBase = () => `http://${process.env.NEXT_PUBLIC_GUACAMOLE_URL ?? 'localhost:8080/guacamole'}`;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -12,22 +12,17 @@ const guacBase = () =>
  * Obtain a fresh Guacamole auth token by logging in with username + password.
  * Returns the token string on success, or null if credentials are invalid.
  */
-async function getGuacToken(
-  username: string,
-  password: string,
-): Promise<string | null> {
+async function getGuacToken(username: string, password: string): Promise<string | null> {
   try {
     const res = await axios.post(
       `${guacBase()}/api/tokens`,
       new URLSearchParams({ username, password }).toString(),
       {
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         validateStatus: () => true,
       },
     );
-    return res.status === 200 && res.data?.authToken
-      ? String(res.data.authToken)
-      : null;
+    return res.status === 200 && res.data?.authToken ? String(res.data.authToken) : null;
   } catch {
     return null;
   }
@@ -54,46 +49,27 @@ export async function PUT(request: NextRequest) {
 
   try {
     const p = request.nextUrl.searchParams;
-    const token = p.get("token");
-    const dataSource = p.get("dataSource") ?? "mysql";
-    const username = p.get("username");
-
-    // Only admin-role users are permitted to change passwords.
-    const userRole = p.get("role");
-    if (userRole !== "admin") {
-      return NextResponse.json(
-        {
-          error:
-            "Only administrators are permitted to change passwords. Please contact your administrator.",
-          type: "RESTRICTED",
-        },
-        { status: 403 },
-      );
-    }
+    const token = p.get('token');
+    const dataSource = p.get('dataSource') ?? 'mysql';
+    const username = p.get('username');
 
     const body = await request.json();
 
     if (!token || !username) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { oldPassword, newPassword } = body;
 
     if (!oldPassword || !newPassword) {
-      return NextResponse.json(
-        { error: "Both current and new password are required" },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: 'Both current and new password are required' }, { status: 400 });
     }
     if (newPassword.length < 8) {
-      return NextResponse.json(
-        { error: "New password must be at least 8 characters" },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: 'New password must be at least 8 characters' }, { status: 400 });
     }
     if (oldPassword === newPassword) {
       return NextResponse.json(
-        { error: "New password must be different from the current password" },
+        { error: 'New password must be different from the current password' },
         { status: 400 },
       );
     }
@@ -107,7 +83,7 @@ export async function PUT(request: NextRequest) {
 
     if (!freshToken) {
       return NextResponse.json(
-        { error: "Current password is incorrect. Please check and try again." },
+        { error: 'Current password is incorrect. Please check and try again.' },
         { status: 403 },
       );
     }
@@ -123,7 +99,7 @@ export async function PUT(request: NextRequest) {
       { oldPassword, newPassword },
       {
         params: { token: freshToken },
-        headers: { "Content-Type": "application/json;charset=UTF-8" },
+        headers: { 'Content-Type': 'application/json;charset=UTF-8' },
         validateStatus: () => true,
       },
     );
@@ -134,13 +110,13 @@ export async function PUT(request: NextRequest) {
 
     console.log(
       `[profile/change-password] user=${username} guac_status=${changeRes.status}`,
-      changeRes.data ?? "",
+      changeRes.data ?? '',
     );
 
     if (changeRes.status === 200 || changeRes.status === 204) {
       return NextResponse.json({
         success: true,
-        message: "Password changed successfully",
+        message: 'Password changed successfully',
       });
     }
 
@@ -151,8 +127,8 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json(
         {
           error:
-            "Your account is not permitted to change its own password. Please contact your administrator.",
-          type: "RESTRICTED",
+            'Your account is not permitted to change its own password. Please contact your administrator.',
+          type: 'RESTRICTED',
         },
         { status: 403 },
       );
@@ -161,8 +137,7 @@ export async function PUT(request: NextRequest) {
     if (changeRes.status === 400) {
       return NextResponse.json(
         {
-          error:
-            changeRes.data?.message ?? "Password does not meet requirements",
+          error: changeRes.data?.message ?? 'Password does not meet requirements',
         },
         { status: 400 },
       );
@@ -170,7 +145,7 @@ export async function PUT(request: NextRequest) {
 
     return NextResponse.json(
       {
-        error: changeRes.data?.message ?? "Failed to change password",
+        error: changeRes.data?.message ?? 'Failed to change password',
         guacStatus: changeRes.status,
       },
       { status: changeRes.status },
@@ -179,10 +154,10 @@ export async function PUT(request: NextRequest) {
     // Always revoke the fresh token on unexpected errors
     if (freshToken) await revokeGuacToken(freshToken);
 
-    console.error("[profile/change-password] Unexpected error:", error.message);
+    console.error('[profile/change-password] Unexpected error:', error.message);
     return NextResponse.json(
       {
-        error: "Failed to change password. Please try again.",
+        error: 'Failed to change password. Please try again.',
         details: error.message,
       },
       { status: 500 },

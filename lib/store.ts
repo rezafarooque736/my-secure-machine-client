@@ -1,6 +1,6 @@
-import { create } from "zustand";
-import { persist } from "zustand/middleware";
-import axios from "axios";
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+import axios from 'axios';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -11,7 +11,7 @@ interface User {
   authToken: string;
   dataSource: string;
   availableDataSources: string[];
-  role: "admin" | "user";
+  role: 'user';
   sessionId?: string;
 }
 
@@ -36,7 +36,7 @@ export const useAuthStore = create<AuthState>()(
     (set, get) => ({
       user: null,
       isAuthenticated: false,
-      language: "en",
+      language: 'en',
 
       // ── Set auth state after login ────────────────────────────────────────
       // Called in your login page after POST /api/auth/login resolves.
@@ -64,7 +64,7 @@ export const useAuthStore = create<AuthState>()(
 
         if (currentUser?.authToken) {
           try {
-            await axios.delete("/api/auth/logout", {
+            await axios.delete('/api/auth/logout', {
               params: {
                 token: currentUser.authToken,
                 // Pass sessionId so the route closes the UserSession record
@@ -80,7 +80,7 @@ export const useAuthStore = create<AuthState>()(
           } catch (error) {
             // Non-fatal — always clear local state even if the API call fails
             // (e.g. network offline, token already expired)
-            console.warn("[store] Logout API error (non-fatal):", error);
+            console.warn('[store] Logout API error (non-fatal):', error);
           }
         }
 
@@ -93,7 +93,7 @@ export const useAuthStore = create<AuthState>()(
     }),
 
     {
-      name: "guac-auth-storage", // localStorage key
+      name: 'guac-auth-storage', // localStorage key
 
       // Only persist these fields — avoids storing transient UI state
       partialize: (state) => ({
