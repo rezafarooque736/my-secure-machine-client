@@ -8,7 +8,6 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,7 +18,6 @@ import {
   Shield,
   Clock,
   Activity,
-  KeyRound,
   Edit,
   Save,
   X,
@@ -40,7 +38,6 @@ interface ProfileData {
   fullName: string | null;
   organization: string | null;
   organizationalRole: string | null;
-  role: 'user';
   lastActive: string | null;
   accountCreated: string | null;
 }
@@ -324,12 +321,6 @@ export default function ProfilePage() {
                   <p className="font-bold text-base leading-tight">{profile?.fullName || user?.username}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">@{user?.username}</p>
                 </div>
-                <Badge
-                  variant="outline"
-                  className={`text-xs bg-blue-500/10 text-blue-600 border-blue-500/20`}
-                >
-                  {profile?.role?.toUpperCase() ?? 'USER'}
-                </Badge>
               </>
             )}
 
@@ -473,12 +464,7 @@ export default function ProfilePage() {
                   value={profile?.organizationalRole}
                   loading={profileLoading}
                 />
-                <InfoRow
-                  icon={Shield}
-                  label="System Role"
-                  value={profile?.role?.toUpperCase()}
-                  loading={profileLoading}
-                />
+                <InfoRow icon={Shield} label="System Role" loading={profileLoading} />
                 <InfoRow icon={Monitor} label="Data Source" value={user?.dataSource} />
                 <InfoRow
                   icon={CalendarClock}

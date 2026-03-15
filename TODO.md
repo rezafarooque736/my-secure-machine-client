@@ -36,8 +36,6 @@ Security & Authentication
 
 User Management
 
-    User groups and roles - Admin, Power User, Guest roles
-
     Permission management - Fine-grained access control per connection
 
     User profile page - Avatar, preferences, password change

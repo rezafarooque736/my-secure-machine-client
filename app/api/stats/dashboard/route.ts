@@ -1,41 +1,38 @@
-import { NextRequest, NextResponse } from "next/server";
-import axios from "axios";
+import { NextRequest, NextResponse } from 'next/server';
+import axios from 'axios';
 
 export async function GET(request: NextRequest) {
   try {
-    const token = request.nextUrl.searchParams.get("token");
-    const dataSource = request.nextUrl.searchParams.get("dataSource");
+    const token = request.nextUrl.searchParams.get('token');
+    const dataSource = request.nextUrl.searchParams.get('dataSource');
 
     if (!token) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const guacamoleUrl =
-      process.env.NEXT_PUBLIC_GUACAMOLE_URL || "localhost:8080/guacamole";
+    const guacamoleUrl = process.env.NEXT_PUBLIC_GUACAMOLE_URL || 'localhost:8080/guacamole';
     const baseURL = `http://${guacamoleUrl}`;
 
     // ── 1. Active sessions ──────────────────────────────────────────────────
     const sessionsResponse = await axios.request({
-      method: "get",
+      method: 'get',
       maxBodyLength: Infinity,
       url: `${baseURL}/api/session/data/${dataSource}/activeConnections`,
       params: { token },
-      headers: { "Content-Type": "application/json" },
+      headers: { 'Content-Type': 'application/json' },
       validateStatus: () => true,
     });
 
     const activeSessions =
-      sessionsResponse.status === 200
-        ? Object.keys(sessionsResponse.data || {}).length
-        : 0;
+      sessionsResponse.status === 200 ? Object.keys(sessionsResponse.data || {}).length : 0;
 
     // ── 2. All connections ──────────────────────────────────────────────────
     const connectionsResponse = await axios.request({
-      method: "get",
+      method: 'get',
       maxBodyLength: Infinity,
       url: `${baseURL}/api/session/data/${dataSource}/connections`,
       params: { token },
-      headers: { "Content-Type": "application/json" },
+      headers: { 'Content-Type': 'application/json' },
       validateStatus: () => true,
     });
 
@@ -46,20 +43,10 @@ export async function GET(request: NextRequest) {
     const now = new Date();
 
     // Start of today (midnight local)
-    const startOfToday = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
-      0, 0, 0, 0
-    );
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
 
     // Start of current month
-    const startOfMonth = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      1,
-      0, 0, 0, 0
-    );
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
 
     // ── 4. Walk all connection histories ────────────────────────────────────
     let totalMinutesToday = 0;
@@ -71,11 +58,11 @@ export async function GET(request: NextRequest) {
       connectionIds.map(async (connId) => {
         try {
           const historyResponse = await axios.request({
-            method: "get",
+            method: 'get',
             maxBodyLength: Infinity,
             url: `${baseURL}/api/session/data/${dataSource}/connections/${connId}/history`,
             params: { token },
-            headers: { "Content-Type": "application/json" },
+            headers: { 'Content-Type': 'application/json' },
             validateStatus: () => true,
           });
 
@@ -86,15 +73,8 @@ export async function GET(request: NextRequest) {
 
             history.forEach((record: any) => {
               const startDate = new Date(record.startDate);
-              const endDate = record.endDate
-                ? new Date(record.endDate)
-                : new Date();
-              const duration = Math.max(
-                0,
-                Math.floor(
-                  (endDate.getTime() - startDate.getTime()) / 60000
-                )
-              );
+              const endDate = record.endDate ? new Date(record.endDate) : new Date();
+              const duration = Math.max(0, Math.floor((endDate.getTime() - startDate.getTime()) / 60000));
 
               // Month bucket
               if (startDate >= startOfMonth) {
@@ -112,14 +92,14 @@ export async function GET(request: NextRequest) {
         } catch {
           // skip connections with no history
         }
-      })
+      }),
     );
 
     // ── 5. Format helpers ───────────────────────────────────────────────────
     const formatDuration = (minutes: number): string => {
       const h = Math.floor(minutes / 60);
       const m = minutes % 60;
-      if (h === 0 && m === 0) return "0m";
+      if (h === 0 && m === 0) return '0m';
       if (h === 0) return `${m}m`;
       if (m === 0) return `${h}h`;
       return `${h}h ${m}m`;
@@ -131,10 +111,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       // Existing fields (kept for backward compat)
       activeSessions,
-      totalUsage: formatDuration(totalMinutesMonth),      
-      totalUsageMinutes: totalMinutesMonth,               
-      connectionCount: totalSessionsMonth,                
-      accountStatus: "Active",
+      totalUsage: formatDuration(totalMinutesMonth),
+      totalUsageMinutes: totalMinutesMonth,
+      connectionCount: totalSessionsMonth,
+      accountStatus: 'Active',
 
       // New granular fields
       totalConnections,
@@ -148,13 +128,13 @@ export async function GET(request: NextRequest) {
       totalSessionsMonth,
     });
   } catch (error: any) {
-    console.error("Dashboard stats error:", error.message);
+    console.error('Dashboard stats error:', error.message);
     return NextResponse.json(
       {
-        error: "Failed to fetch dashboard statistics",
+        error: 'Failed to fetch dashboard statistics',
         details: error.message,
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

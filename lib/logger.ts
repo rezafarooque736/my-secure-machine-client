@@ -1,11 +1,9 @@
 import { prisma } from '@/lib/prisma';
-
-export type LogLevel = 'INFO' | 'WARN' | 'ERROR' | 'SUCCESS';
-export type LogCategory = 'AUTH' | 'CONNECTION' | 'SYSTEM' | 'USER_ACTION';
+import { ActivityLogCategory, ActivityLogLevel } from './generated/prisma/enums';
 
 interface LogEntry {
-  level: LogLevel;
-  category: LogCategory;
+  level: ActivityLogLevel;
+  category: ActivityLogCategory;
   message: string;
   username?: string;
   ipAddress?: string;
@@ -62,7 +60,7 @@ class Logger {
     }
   }
 
-  private shouldLog(category: LogCategory): boolean {
+  private shouldLog(category: ActivityLogCategory): boolean {
     switch (category) {
       case 'AUTH':
         return this.enableAuthLogging;

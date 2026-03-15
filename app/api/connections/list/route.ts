@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
-import axios from "axios";
+import { NextRequest, NextResponse } from 'next/server';
+import axios from 'axios';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/connections/list
@@ -12,50 +12,43 @@ import axios from "axios";
 
 export async function GET(request: NextRequest) {
   try {
-    const token = request.nextUrl.searchParams.get("token");
-    const dataSource = request.nextUrl.searchParams.get("dataSource");
+    const token = request.nextUrl.searchParams.get('token');
+    const dataSource = request.nextUrl.searchParams.get('dataSource');
 
     if (!token) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     if (!dataSource) {
-      return NextResponse.json(
-        { error: "dataSource is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'dataSource is required' }, { status: 400 });
     }
 
-    const guacamoleUrl =
-      process.env.NEXT_PUBLIC_GUACAMOLE_URL || "localhost:8080/guacamole";
+    const guacamoleUrl = process.env.NEXT_PUBLIC_GUACAMOLE_URL || 'localhost:8080/guacamole';
     const baseURL = `http://${guacamoleUrl}`;
 
     // ── Fetch all connections from Guacamole ──────────────────────────────
     const response = await axios.request({
-      method: "get",
+      method: 'get',
       maxBodyLength: Infinity,
       url: `${baseURL}/api/session/data/${dataSource}/connections`,
       params: { token },
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       },
       validateStatus: () => true,
     });
 
     if (response.status === 401 || response.status === 403) {
-      return NextResponse.json(
-        { error: "Guacamole token invalid or expired" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Guacamole token invalid or expired' }, { status: 401 });
     }
 
     if (response.status !== 200) {
       return NextResponse.json(
         {
-          error: "Failed to fetch connections from Guacamole",
+          error: 'Failed to fetch connections from Guacamole',
           status: response.status,
         },
-        { status: 502 }
+        { status: 502 },
       );
     }
 
@@ -67,17 +60,11 @@ export async function GET(request: NextRequest) {
         const conn = raw[id];
         return {
           identifier: id,
-          name: conn.name ?? "",
-          protocol: conn.protocol ?? "",
+          name: conn.name ?? '',
+          protocol: conn.protocol ?? '',
           // Optional fields — present depending on Guacamole version
-          hostname:
-            conn.attributes?.["guacd-hostname"] ??
-            conn.parameters?.hostname ??
-            null,
-          port:
-            conn.attributes?.["guacd-port"] ??
-            conn.parameters?.port ??
-            null,
+          hostname: conn.attributes?.['guacd-hostname'] ?? conn.parameters?.hostname ?? null,
+          port: conn.attributes?.['guacd-port'] ?? conn.parameters?.port ?? null,
           activeConnections: conn.activeConnections ?? 0,
           lastActive: conn.lastActive ?? null,
         };
@@ -89,13 +76,13 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(connections);
   } catch (error: any) {
-    console.error("Connections list error:", error.message);
+    console.error('Connections list error:', error.message);
     return NextResponse.json(
       {
-        error: "Internal server error while fetching connections",
+        error: 'Internal server error while fetching connections',
         details: error.message,
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

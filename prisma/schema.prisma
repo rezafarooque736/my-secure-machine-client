@@ -7,15 +7,29 @@ datasource db {
   provider = "postgresql"
 }
 
+enum ActivityLogLevel {
+  INFO
+  WARN
+  ERROR
+  SUCCESS
+}
+
+enum ActivityLogCategory {
+  AUTH
+  CONNECTION
+  SYSTEM
+  USER_ACTION
+}
+
 model ActivityLog {
-  id        Int      @id @default(autoincrement())
-  level     String // INFO, WARN, ERROR, SUCCESS
-  category  String // AUTH, CONNECTION, SYSTEM, USER_ACTION
+  id        Int                 @id @default(autoincrement())
+  level     ActivityLogLevel
+  category  ActivityLogCategory
   message   String
   username  String?
   ipAddress String?
   metadata  String? // JSON string
-  timestamp DateTime @default(now())
+  timestamp DateTime            @default(now())
 
   @@index([username])
   @@index([category])
@@ -59,13 +73,18 @@ model LoginAttempt {
 // Full User Login → Logout Session
 // Tracks every authenticated session lifecycle
 // ─────────────────────────────────────────
+enum UserSessionLogoutReason {
+  MANUAL
+  TIMEOUT
+  FORCED
+  EXPIRED
+}
 
 model UserSession {
   id String @id @default(cuid())
 
   // Identity
   username String
-  role     String?
 
   // Network info (both sides)
   clientIp  String? // browser/client IP
@@ -79,8 +98,8 @@ model UserSession {
   durationMin Int? // filled on logout
 
   // State
-  isActive     Boolean @default(true)
-  logoutReason String? // MANUAL, TIMEOUT, FORCED, EXPIRED
+  isActive     Boolean                  @default(true)
+  logoutReason UserSessionLogoutReason?
 
   // Extra metadata (JSON string)
   // e.g. { "browser": "Chrome", "os": "Ubuntu", "country": "IN" }
@@ -98,16 +117,23 @@ model UserSession {
 // Admin-managed announcements shown on dashboard
 // ─────────────────────────────────────────
 
+enum NoticeType {
+  INFO
+  WARNING
+  SUCCESS
+  UPDATE
+}
+
 model Notice {
-  id        Int       @id @default(autoincrement())
+  id        Int        @id @default(autoincrement())
   title     String
   content   String
-  type      String    @default("INFO") // INFO | WARNING | SUCCESS | UPDATE
-  isPinned  Boolean   @default(false)
-  isActive  Boolean   @default(true)
+  type      NoticeType @default(INFO)
+  isPinned  Boolean    @default(false)
+  isActive  Boolean    @default(true)
   createdBy String?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
   expiresAt DateTime? // auto-hide after this date (null = permanent)
 
   @@index([isActive])

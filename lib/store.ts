@@ -11,7 +11,6 @@ interface User {
   authToken: string;
   dataSource: string;
   availableDataSources: string[];
-  role: 'user';
   sessionId?: string;
 }
 
@@ -19,8 +18,6 @@ interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   language: string;
-
-  // Actions
   setAuth: (user: User) => void;
   updateSessionId: (sessionId: string) => void;
   logout: () => Promise<void>;
@@ -40,7 +37,7 @@ export const useAuthStore = create<AuthState>()(
 
       // ── Set auth state after login ────────────────────────────────────────
       // Called in your login page after POST /api/auth/login resolves.
-      // The full response object (authToken, username, role, sessionId, etc.)
+      // The full response object (authToken, username, sessionId, etc.)
       // is stored directly.
       setAuth: (user: User) => set({ user, isAuthenticated: true }),
 

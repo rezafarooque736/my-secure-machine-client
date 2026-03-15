@@ -1,33 +1,33 @@
-import { NextRequest, NextResponse } from "next/server";
-import axios from "axios";
+import { NextRequest, NextResponse } from 'next/server';
+import axios from 'axios';
 
 export async function GET(request: NextRequest) {
   try {
-    const token = request.nextUrl.searchParams.get("token");
-    const dataSource = request.nextUrl.searchParams.get("dataSource");
-    const limit = parseInt(request.nextUrl.searchParams.get("limit") || "10");
+    const token = request.nextUrl.searchParams.get('token');
+    const dataSource = request.nextUrl.searchParams.get('dataSource');
+    const limit = parseInt(request.nextUrl.searchParams.get('limit') || '10');
 
     if (!token) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const guacamoleUrl = process.env.NEXT_PUBLIC_GUACAMOLE_URL || "localhost:8080/guacamole";
+    const guacamoleUrl = process.env.NEXT_PUBLIC_GUACAMOLE_URL || 'localhost:8080/guacamole';
     const baseURL = `http://${guacamoleUrl}`;
 
     // Fetch all connections first
     const connectionsResponse = await axios.request({
-      method: "get",
+      method: 'get',
       maxBodyLength: Infinity,
       url: `${baseURL}/api/session/data/${dataSource}/connections`,
       params: { token },
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       },
       validateStatus: () => true,
     });
 
     if (connectionsResponse.status !== 200) {
-      throw new Error("Failed to fetch connections");
+      throw new Error('Failed to fetch connections');
     }
 
     const connections = connectionsResponse.data || {};
@@ -40,12 +40,12 @@ export async function GET(request: NextRequest) {
       connectionIds.slice(0, 20).map(async (connId) => {
         try {
           const historyResponse = await axios.request({
-            method: "get",
+            method: 'get',
             maxBodyLength: Infinity,
             url: `${baseURL}/api/session/data/${dataSource}/connections/${connId}/history`,
             params: { token },
             headers: {
-              "Content-Type": "application/json",
+              'Content-Type': 'application/json',
             },
             validateStatus: () => true,
           });
@@ -92,10 +92,10 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(sortedRecent);
   } catch (error: any) {
-    console.error("Recent connections error:", error.message);
+    console.error('Recent connections error:', error.message);
     return NextResponse.json(
       {
-        error: "Failed to fetch recent connections",
+        error: 'Failed to fetch recent connections',
         details: error.message,
       },
       { status: 500 },

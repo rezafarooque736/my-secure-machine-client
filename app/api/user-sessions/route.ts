@@ -55,7 +55,7 @@ function parseUserAgent(ua: string): Record<string, string> {
 async function verifyGuacToken(
   token: string,
   dataSource: string,
-): Promise<{ valid: boolean; username?: string; role?: string }> {
+): Promise<{ valid: boolean; username?: string }> {
   try {
     const baseURL = `http://${process.env.NEXT_PUBLIC_GUACAMOLE_URL || 'localhost:8080/guacamole'}`;
 
@@ -71,7 +71,7 @@ async function verifyGuacToken(
 
     const username: string = res.data?.username ?? '';
 
-    return { valid: true, username, role: 'user' };
+    return { valid: true, username };
   } catch {
     return { valid: false };
   }
@@ -158,7 +158,6 @@ export async function GET(request: NextRequest) {
       return {
         id: s.id,
         username: s.username,
-        role: s.role,
 
         // Network
         clientIp: s.clientIp,
@@ -209,7 +208,6 @@ export async function GET(request: NextRequest) {
 //     token:      string,
 //     dataSource: string,
 //     username:   string,
-//     role:       string,
 //     hostname?:  string   // optional: pre-resolved hostname
 //   }
 // ─────────────────────────────────────────────────────────────────────────────
@@ -217,7 +215,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { token, dataSource, username, role, hostname } = body;
+    const { token, dataSource, username, hostname } = body;
 
     if (!token || !dataSource || !username) {
       return NextResponse.json({ error: 'token, dataSource and username are required' }, { status: 400 });
@@ -239,7 +237,6 @@ export async function POST(request: NextRequest) {
     const session = await prisma.userSession.create({
       data: {
         username,
-        role: role ?? auth.role ?? 'user',
         clientIp,
         serverIp,
         hostname: hostname ?? null,
@@ -264,7 +261,6 @@ export async function POST(request: NextRequest) {
         ipAddress: clientIp,
         metadata: JSON.stringify({
           sessionId: session.id,
-          role: role ?? auth.role,
           browser: uaMeta.browser,
           os: uaMeta.os,
         }),
@@ -300,7 +296,7 @@ export async function POST(request: NextRequest) {
 //     token:         string,
 //     dataSource:    string,
 //     sessionId:     string,   // UserSession.id (cuid)
-//     logoutReason?: string    // "MANUAL" | "TIMEOUT" | "FORCED" | "EXPIRED"
+//     logoutReason?: UserSessionLogoutReason    // "MANUAL" | "TIMEOUT" | "FORCED" | "EXPIRED"
 //   }
 // ─────────────────────────────────────────────────────────────────────────────
 

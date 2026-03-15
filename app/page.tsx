@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -15,12 +16,7 @@ import { Loader2, ShieldCheck, KeyRound, User, Wifi, Monitor, Lock, Globe } from
 import { ThemeToggle } from '@/components/theme-toggle';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
-
-const createLoginSchema = () =>
-  z.object({
-    username: z.string().min(1, 'Username is required'),
-    password: z.string().min(1, 'Password is required'),
-  });
+import { loginSchema } from '@/lib/validations/auth';
 
 type LoginValues = { username: string; password: string };
 
@@ -61,10 +57,8 @@ export default function LoginPage() {
   const { setAuth, isAuthenticated } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
-  const loginSchema = createLoginSchema();
   const form = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: { username: '', password: '' },
@@ -75,23 +69,35 @@ export default function LoginPage() {
     if (isHydrated && isAuthenticated) router.push('/dashboard');
   }, [isHydrated, isAuthenticated, router]);
 
+  // Update performLogin function
   const performLogin = async (values: LoginValues) => {
     setIsLoading(true);
     try {
+      // Client-side validation
+      loginSchema.parse(values);
+
       const res = await axios.post('/api/auth/login', {
         username: values.username.trim(),
         password: values.password.trim(),
       });
+
       setAuth({
         authToken: res.data.authToken,
         username: res.data.username,
         dataSource: res.data.dataSource,
         availableDataSources: res.data.availableDataSources ?? ['mysql'],
-        role: res.data.role,
         sessionId: res.data.sessionId,
       });
+
       router.push('/dashboard');
     } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        toast.error('Validation Error', {
+          description: error.errors[0]?.message || 'Invalid input',
+        });
+        return;
+      }
+
       toast.error('Login failed', {
         description: error.response?.data?.error || 'Invalid credentials',
       });

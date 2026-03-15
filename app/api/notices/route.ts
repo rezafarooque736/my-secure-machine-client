@@ -3,13 +3,13 @@ import axios from 'axios';
 import { prisma } from '@/lib/prisma';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Helper: Verify token with Guacamole + check role
+// Helper: Verify token with Guacamole
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function verifyToken(
   token: string,
   dataSource: string,
-): Promise<{ valid: boolean; username?: string; role?: string }> {
+): Promise<{ valid: boolean; username?: string }> {
   try {
     const guacamoleUrl = process.env.NEXT_PUBLIC_GUACAMOLE_URL || 'localhost:8080/guacamole';
     const baseURL = `http://${guacamoleUrl}`;
@@ -29,7 +29,6 @@ async function verifyToken(
     return {
       valid: true,
       username,
-      role: 'user',
     };
   } catch {
     return { valid: false };
@@ -50,7 +49,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Verify token is valid (any role)
+    // Verify token is valid
     const auth = await verifyToken(token, dataSource);
     if (!auth.valid) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });

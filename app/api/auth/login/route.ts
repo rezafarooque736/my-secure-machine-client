@@ -2,6 +2,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/prisma';
+import { loginSchema } from '@/lib/validations/auth';
+import { rateLimiters } from '@/lib/rate-limit';
+import { z } from 'zod';
 
 const GUACAMOLE_URL = process.env.GUACAMOLE_API_URL || 'http://localhost:8080/guacamole';
 
@@ -42,45 +45,36 @@ function parseUserAgent(ua: string) {
   return { browser, os, device };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// POST /api/auth/login
-//
-// Body: { username: string, password: string }
-//
-// 1. Authenticates against Guacamole /api/tokens
-// 2. Creates a UserSession record in Prisma
-// 3. Writes an ActivityLog AUTH SUCCESS entry
-// 4. Returns { authToken, username, dataSource, availableDataSources, role, sessionId }
-// ─────────────────────────────────────────────────────────────────────────────
-
 export async function POST(request: NextRequest) {
   const ipAddress = getClientIp(request);
   const userAgent = request.headers.get('user-agent') ?? 'unknown';
   const uaMeta = parseUserAgent(userAgent);
-
   let username = 'unknown';
+
+  // Rate limiting
+  const rateLimitResponse = await rateLimiters.login(request);
+  if (rateLimitResponse) {
+    await logger.log({
+      level: 'WARN',
+      category: 'AUTH',
+      message: 'Rate limit exceeded for login attempt',
+      ipAddress,
+      metadata: { userAgent },
+    });
+    return rateLimitResponse;
+  }
 
   try {
     const body = await request.json();
-    username = (body.username ?? '').trim();
-    const password = (body.password ?? '').trim();
 
-    // ── Input validation ───────────────────────────────────────────────────
-    if (!username || !password) {
-      await logger.log({
-        level: 'WARN',
-        category: 'AUTH',
-        message: 'Login attempt with missing credentials',
-        ipAddress,
-        metadata: { userAgent },
-      });
+    // Validate input with Zod
+    const validatedData = loginSchema.parse(body);
+    username = validatedData.username.trim();
+    const password = validatedData.password.trim();
 
-      return NextResponse.json({ error: 'Username and password are required' }, { status: 400 });
-    }
+    console.log(`[AUTH] Login attempt – user: ${username} | ip: ${ipAddress}`);
 
-    console.log(`[AUTH] Login attempt — user: ${username} | ip: ${ipAddress}`);
-
-    // ── Step 1: Authenticate with Guacamole ────────────────────────────────
+    // Authenticate with Guacamole
     const formData = new URLSearchParams();
     formData.append('username', username);
     formData.append('password', password);
@@ -92,7 +86,6 @@ export async function POST(request: NextRequest) {
     });
 
     if (!guacRes.ok) {
-      // Log failed attempt
       await logger.log({
         level: 'WARN',
         category: 'AUTH',
@@ -102,7 +95,6 @@ export async function POST(request: NextRequest) {
         metadata: { status: guacRes.status, userAgent },
       });
 
-      // Record failed login attempt in DB
       await prisma.loginAttempt.create({
         data: {
           username,
@@ -127,17 +119,13 @@ export async function POST(request: NextRequest) {
         username,
         ipAddress,
       });
-
-      return NextResponse.json({ error: 'Authentication failed — no token received' }, { status: 401 });
+      return NextResponse.json({ error: 'Authentication failed – no token received' }, { status: 401 });
     }
 
-    const role = 'user';
-
-    // ── Step 3: Create UserSession record ──────────────────────────────────
+    // Create UserSession record
     const session = await prisma.userSession.create({
       data: {
         username: guacUsername,
-        role,
         clientIp: ipAddress,
         serverIp: request.headers.get('host') ?? 'unknown',
         hostname: request.headers.get('x-forwarded-host') ?? null,
@@ -152,11 +140,10 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    console.log(`[AUTH] Session created — id: ${session.id} | user: ${guacUsername} | role: ${role}`);
+    console.log(`[AUTH] Session created – id: ${session.id} | user: ${guacUsername}`);
 
-    // ── Step 4: Record successful login attempt + audit log ────────────────
+    // Record successful login attempt + audit log
     await Promise.all([
-      // LoginAttempt record
       prisma.loginAttempt.create({
         data: {
           username: guacUsername,
@@ -165,8 +152,6 @@ export async function POST(request: NextRequest) {
           userAgent,
         },
       }),
-
-      // ActivityLog / Audit entry
       logger.log({
         level: 'SUCCESS',
         category: 'AUTH',
@@ -175,7 +160,6 @@ export async function POST(request: NextRequest) {
         ipAddress,
         metadata: {
           sessionId: session.id,
-          role,
           browser: uaMeta.browser,
           os: uaMeta.os,
           device: uaMeta.device,
@@ -184,24 +168,27 @@ export async function POST(request: NextRequest) {
       }),
     ]);
 
-    // ── Step 5: Return auth response ───────────────────────────────────────
     return NextResponse.json(
       {
         authToken,
         username: guacUsername,
         dataSource: dataSource ?? 'mysql',
         availableDataSources: availableDataSources ?? ['mysql'],
-        role,
-
-        // Include sessionId so the client can call PATCH /api/user-sessions
-        // on logout to close the session record
         sessionId: session.id,
       },
-      { status: 200 },
+      {
+        status: 200,
+        headers: {
+          'Set-Cookie': `guac_session=${session.id}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=86400`,
+        },
+      },
     );
   } catch (error: any) {
-    console.error('[AUTH] Login error:', error.message);
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: 'Validation failed', details: error.errors }, { status: 400 });
+    }
 
+    console.error('[AUTH] Login error:', error.message);
     await logger
       .log({
         level: 'ERROR',
@@ -211,7 +198,7 @@ export async function POST(request: NextRequest) {
         ipAddress,
         metadata: { stack: error.stack },
       })
-      .catch(() => {}); // never let logging crash the response
+      .catch(() => {});
 
     return NextResponse.json(
       {

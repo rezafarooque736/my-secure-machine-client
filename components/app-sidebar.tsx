@@ -160,7 +160,6 @@ export function AppSidebar() {
                   </Avatar>
                   <div className="grid flex-1 text-left text-sm leading-tight">
                     <span className="truncate font-semibold">{user?.username}</span>
-                    <span className="truncate text-xs text-muted-foreground capitalize">{user?.role}</span>
                   </div>
                   <ChevronDown className="ml-auto size-4" />
                 </SidebarMenuButton>

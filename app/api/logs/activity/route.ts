@@ -8,7 +8,6 @@ export async function GET(request: NextRequest) {
 
     // Get auth info from headers (you should validate token here)
     const username = searchParams.get('username');
-    const role = searchParams.get('role');
     const page = parseInt(searchParams.get('page') || '1');
     const pageSize = parseInt(searchParams.get('pageSize') || '50');
     const level = searchParams.get('level');
@@ -17,17 +16,15 @@ export async function GET(request: NextRequest) {
     const endDate = searchParams.get('endDate');
     const search = searchParams.get('search');
 
-    if (!username || !role) {
+    if (!username) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    // Build where clause based on role
+    // Build where clause
     const where: any = {};
 
     // If user, only show their own logs
-    if (role == 'user') {
-      where.username = username;
-    }
+    where.username = username;
 
     // Apply filters
     if (level) {

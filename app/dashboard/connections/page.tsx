@@ -1,20 +1,15 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { useAuthStore } from "@/lib/store";
-import { useRouter } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useAuthStore } from '@/lib/store';
+import { useRouter } from 'next/navigation';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Monitor,
   Search,
@@ -25,9 +20,15 @@ import {
   Clock,
   ExternalLink,
   Play,
-} from "lucide-react";
-import { cn } from "@/lib/utils";
-import axios from "axios";
+  RefreshCw,
+  ArrowRight,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import axios from 'axios';
+import { formatDistanceToNow } from 'date-fns';
+import { toast } from 'sonner';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Connection {
   identifier: string;
@@ -38,352 +39,482 @@ interface Connection {
   lastUsed?: string;
 }
 
-type ViewMode = "grid" | "list";
-type SortBy = "name" | "protocol" | "recent";
+interface RecentConnection {
+  identifier: string;
+  name: string;
+  protocol: string;
+  lastUsed: string;
+  duration?: number;
+}
+
+type ViewMode = 'grid' | 'list';
+type SortBy = 'name' | 'protocol' | 'recent';
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function getProtocolColor(protocol: string) {
+  const colors: Record<string, string> = {
+    rdp: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+    vnc: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+    ssh: 'bg-green-500/10 text-green-400 border-green-500/20',
+    telnet: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
+  };
+  return colors[protocol.toLowerCase()] || 'bg-gray-500/10 text-gray-400 border-gray-500/20';
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function ConnectionsPage() {
   const { user } = useAuthStore();
   const router = useRouter();
+
+  // All connections state
   const [connections, setConnections] = useState<Connection[]>([]);
-  const [filteredConnections, setFilteredConnections] = useState<Connection[]>(
-    [],
-  );
-  const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedProtocol, setSelectedProtocol] = useState<string>("all");
-  const [sortBy, setSortBy] = useState<SortBy>("name");
-  const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [loadingAll, setLoadingAll] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedProtocol, setSelectedProtocol] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<SortBy>('name');
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
 
-  useEffect(() => {
+  // Recent connections state
+  const [recentConnections, setRecentConnections] = useState<RecentConnection[]>([]);
+  const [loadingRecent, setLoadingRecent] = useState(true);
+
+  // ── Fetch all connections ────────────────────────────────────────────────
+  const fetchConnections = useCallback(async () => {
     if (!user) return;
-
-    const fetchConnections = async () => {
-      try {
-        // Fetch connections
-        const response = await axios.get("/api/connections/list", {
-          params: {
-            token: user.authToken,
-            dataSource: user.dataSource,
-          },
-        });
-        const connectionsList = response.data;
-        setConnections(connectionsList);
-        setFilteredConnections(connectionsList);
-      } catch (error) {
-        console.error("Failed to fetch connections", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchConnections();
+    setLoadingAll(true);
+    try {
+      const res = await axios.get('/api/connections/list', {
+        params: { token: user.authToken, dataSource: user.dataSource },
+      });
+      setConnections(res.data);
+    } catch {
+      toast.error('Failed to load connections');
+    } finally {
+      setLoadingAll(false);
+    }
   }, [user]);
 
-  // Filter and sort connections
+  // ── Fetch recent connections ─────────────────────────────────────────────
+  const fetchRecentConnections = useCallback(async () => {
+    if (!user) return;
+    setLoadingRecent(true);
+    try {
+      const res = await axios.get('/api/connections/recent', {
+        params: { token: user.authToken, dataSource: user.dataSource, limit: 20 },
+      });
+      setRecentConnections(res.data);
+    } catch {
+      toast.error('Failed to load recent connections');
+    } finally {
+      setLoadingRecent(false);
+    }
+  }, [user]);
+
   useEffect(() => {
+    fetchConnections();
+    fetchRecentConnections();
+  }, [fetchConnections, fetchRecentConnections]);
+
+  // ── Filter + sort ────────────────────────────────────────────────────────
+  const filteredConnections = useMemo(() => {
     let filtered = [...connections];
 
-    // Search filter
     if (searchQuery) {
       filtered = filtered.filter(
-        (conn) =>
-          conn.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          conn.protocol.toLowerCase().includes(searchQuery.toLowerCase()),
+        (c) =>
+          c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          c.protocol.toLowerCase().includes(searchQuery.toLowerCase()),
       );
     }
 
-    // Protocol filter
-    if (selectedProtocol !== "all") {
-      filtered = filtered.filter(
-        (conn) => conn.protocol.toLowerCase() === selectedProtocol,
-      );
+    if (selectedProtocol !== 'all') {
+      filtered = filtered.filter((c) => c.protocol.toLowerCase() === selectedProtocol);
     }
 
-    // Sort
     filtered.sort((a, b) => {
       switch (sortBy) {
-        case "name":
+        case 'name':
           return a.name.localeCompare(b.name);
-        case "protocol":
+        case 'protocol':
           return a.protocol.localeCompare(b.protocol);
-        case "recent":
-          return (b.lastUsed || "").localeCompare(a.lastUsed || "");
+        case 'recent':
+          return (b.lastUsed || '').localeCompare(a.lastUsed || '');
         default:
           return 0;
       }
     });
 
-    setFilteredConnections(filtered);
+    return filtered;
   }, [connections, searchQuery, selectedProtocol, sortBy]);
 
-  const handleConnectionClick = (connectionId: string) => {
-    window.open(`/connection/${connectionId}`, "_blank", "noopener,noreferrer");
-  };
+  const protocols = useMemo(
+    () => ['all', ...Array.from(new Set(connections.map((c) => c.protocol.toLowerCase())))],
+    [connections],
+  );
 
-  const protocols = [
-    "all",
-    ...Array.from(new Set(connections.map((c) => c.protocol.toLowerCase()))),
-  ];
+  // ── Click handler ────────────────────────────────────────────────────────
+  const handleConnectionClick = useCallback((connectionId: string) => {
+    window.open(`/connection/${connectionId}`, '_blank', 'noopener,noreferrer');
+  }, []);
 
-  const getProtocolColor = (protocol: string) => {
-    const colors: Record<string, string> = {
-      rdp: "bg-blue-500/10 text-blue-400 border-blue-500/20",
-      vnc: "bg-purple-500/10 text-purple-400 border-purple-500/20",
-      ssh: "bg-green-500/10 text-green-400 border-green-500/20",
-      telnet: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
-    };
-    return (
-      colors[protocol.toLowerCase()] ||
-      "bg-gray-500/10 text-gray-400 border-gray-500/20"
-    );
-  };
-
+  // ─────────────────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      {/* Header */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+    <div className="space-y-5 animate-in fade-in duration-500">
+      {/* ── Page Header ──────────────────────────────────────────────────── */}
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">All Connections</h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="text-2xl font-bold tracking-tight">Connections</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
             Browse and connect to your available remote desktops
           </p>
         </div>
         <div className="flex items-center gap-2">
           <Button
-            variant={viewMode === "grid" ? "default" : "outline"}
+            variant={viewMode === 'grid' ? 'default' : 'outline'}
             size="icon"
-            onClick={() => setViewMode("grid")}
+            className="h-8 w-8"
+            onClick={() => setViewMode('grid')}
           >
             <Grid3x3 className="h-4 w-4" />
           </Button>
           <Button
-            variant={viewMode === "list" ? "default" : "outline"}
+            variant={viewMode === 'list' ? 'default' : 'outline'}
             size="icon"
-            onClick={() => setViewMode("list")}
+            className="h-8 w-8"
+            onClick={() => setViewMode('list')}
           >
             <List className="h-4 w-4" />
           </Button>
         </div>
       </div>
 
-      {/* Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Filter className="h-5 w-5" />
-            Filters & Search
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col md:flex-row gap-4">
-            {/* Search */}
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+      {/* ── Tabs ─────────────────────────────────────────────────────────── */}
+      <Tabs defaultValue="all" className="w-full">
+        <TabsList className="h-9">
+          <TabsTrigger value="all" className="text-xs gap-1.5">
+            <Monitor className="h-3.5 w-3.5" />
+            All Connections
+            {!loadingAll && (
+              <span className="ml-1 bg-muted text-muted-foreground rounded-full px-1.5 py-0 text-[10px] font-semibold">
+                {connections.length}
+              </span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="recent" className="text-xs gap-1.5">
+            <Clock className="h-3.5 w-3.5" />
+            Recent
+            {!loadingRecent && recentConnections.length > 0 && (
+              <span className="ml-1 bg-muted text-muted-foreground rounded-full px-1.5 py-0 text-[10px] font-semibold">
+                {recentConnections.length}
+              </span>
+            )}
+          </TabsTrigger>
+        </TabsList>
+
+        {/* ── ALL CONNECTIONS TAB ──────────────────────────────────────── */}
+        <TabsContent value="all" className="mt-4 space-y-4">
+          {/* Filters */}
+          <div className="flex flex-col sm:flex-row gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <Input
-                placeholder="Search connections..."
+                placeholder="Search by name or protocol..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
+                className="pl-9 h-9 text-sm"
               />
             </div>
-
-            {/* Protocol Filter */}
-            <Select
-              value={selectedProtocol}
-              onValueChange={setSelectedProtocol}
-            >
-              <SelectTrigger className="w-full md:w-[200px]">
+            <Select value={selectedProtocol} onValueChange={setSelectedProtocol}>
+              <SelectTrigger className="h-9 text-sm w-full sm:w-[160px]">
+                <Filter className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
                 <SelectValue placeholder="All Protocols" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Protocols</SelectItem>
                 {protocols
-                  .filter((p) => p !== "all")
-                  .map((protocol) => (
-                    <SelectItem key={protocol} value={protocol}>
-                      {protocol.toUpperCase()}
+                  .filter((p) => p !== 'all')
+                  .map((p) => (
+                    <SelectItem key={p} value={p}>
+                      {p.toUpperCase()}
                     </SelectItem>
                   ))}
               </SelectContent>
             </Select>
-
-            {/* Sort */}
-            <Select
-              value={sortBy}
-              onValueChange={(value) => setSortBy(value as SortBy)}
-            >
-              <SelectTrigger className="w-full md:w-[200px]">
+            <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortBy)}>
+              <SelectTrigger className="h-9 text-sm w-full sm:w-[150px]">
+                <SortAsc className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
                 <SelectValue placeholder="Sort by" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="name">
-                  <div className="flex items-center gap-2">
-                    <SortAsc className="h-4 w-4" />
-                    Name
-                  </div>
-                </SelectItem>
-                <SelectItem value="protocol">
-                  <div className="flex items-center gap-2">
-                    <Monitor className="h-4 w-4" />
-                    Protocol
-                  </div>
-                </SelectItem>
-                <SelectItem value="recent">
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4" />
-                    Recent
-                  </div>
-                </SelectItem>
+                <SelectItem value="name">Name</SelectItem>
+                <SelectItem value="protocol">Protocol</SelectItem>
+                <SelectItem value="recent">Recent</SelectItem>
               </SelectContent>
             </Select>
           </div>
-        </CardContent>
-      </Card>
 
-      {/* Results Count */}
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          Showing{" "}
-          <span className="font-semibold text-foreground">
-            {filteredConnections.length}
-          </span>{" "}
-          of{" "}
-          <span className="font-semibold text-foreground">
-            {connections.length}
-          </span>{" "}
-          connections
-        </p>
-      </div>
-
-      {/* Connections Grid/List */}
-      {loading ? (
-        <div
-          className={cn(
-            "grid gap-4",
-            viewMode === "grid"
-              ? "md:grid-cols-2 lg:grid-cols-3"
-              : "grid-cols-1",
+          {/* Count */}
+          {!loadingAll && (
+            <p className="text-xs text-muted-foreground">
+              Showing <span className="font-semibold text-foreground">{filteredConnections.length}</span> of{' '}
+              <span className="font-semibold text-foreground">{connections.length}</span> connections
+            </p>
           )}
-        >
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <Skeleton key={i} className="h-48" />
-          ))}
-        </div>
-      ) : filteredConnections.length > 0 ? (
-        viewMode === "grid" ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredConnections.map((conn) => (
-              <Card
-                key={conn.identifier}
-                className="group hover:shadow-lg hover:border-primary/50 transition-all cursor-pointer"
-                onClick={() => handleConnectionClick(conn.identifier)}
-              >
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3 flex-1">
-                      <div className="p-3 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
-                        <Monitor className="h-6 w-6 text-primary" />
+
+          {/* Grid / List */}
+          {loadingAll ? (
+            <div
+              className={cn(
+                'grid gap-3',
+                viewMode === 'grid' ? 'md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1',
+              )}
+            >
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <Skeleton key={i} className="h-40 rounded-xl" />
+              ))}
+            </div>
+          ) : filteredConnections.length > 0 ? (
+            viewMode === 'grid' ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {filteredConnections.map((conn) => (
+                  <Card
+                    key={conn.identifier}
+                    className="group cursor-pointer
+                      bg-gradient-to-r from-muted/60 to-muted/30
+                      dark:from-zinc-800/80 dark:to-zinc-900/60
+                      border border-sky-500/40 dark:border-sky-400/30
+                      [box-shadow:0_0_0_1px_rgba(56,189,248,0.15),0_2px_8px_rgba(56,189,248,0.12),0_1px_2px_rgba(0,0,0,0.08)]
+                      dark:[box-shadow:0_0_0_1px_rgba(56,189,248,0.2),0_2px_12px_rgba(56,189,248,0.18),0_1px_3px_rgba(0,0,0,0.4)]
+                      hover:border-sky-400/70 dark:hover:border-sky-400/60
+                      hover:[box-shadow:0_0_0_1px_rgba(56,189,248,0.3),0_4px_16px_rgba(56,189,248,0.25),0_1px_3px_rgba(0,0,0,0.1)]
+                      dark:hover:[box-shadow:0_0_0_1px_rgba(56,189,248,0.4),0_4px_20px_rgba(56,189,248,0.35),0_2px_4px_rgba(0,0,0,0.5)]
+                      transition-all duration-200"
+                    onClick={() => handleConnectionClick(conn.identifier)}
+                  >
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <div className="p-2.5 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors shrink-0">
+                            <Monitor className="h-5 w-5 text-primary" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <CardTitle className="text-sm font-semibold group-hover:text-primary transition-colors truncate">
+                              {conn.name}
+                            </CardTitle>
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                'mt-1.5 text-xs py-0 h-4 px-1.5',
+                                getProtocolColor(conn.protocol),
+                              )}
+                            >
+                              {conn.protocol.toUpperCase()}
+                            </Badge>
+                          </div>
+                        </div>
+                        <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <CardTitle className="text-base group-hover:text-primary transition-colors truncate">
-                          {conn.name}
-                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <div
+                        className="flex items-center gap-2
+                        px-2.5 py-1.5 rounded-lg
+                        bg-primary/8 dark:bg-primary/15
+                        border border-primary/20
+                        text-primary text-xs font-semibold
+                        group-hover:bg-primary group-hover:border-primary group-hover:text-primary-foreground
+                        transition-all duration-200 justify-center"
+                      >
+                        <Play className="h-3 w-3" />
+                        Connect
+                        <ArrowRight className="h-3 w-3 transition-transform duration-200 group-hover:translate-x-0.5" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {filteredConnections.map((conn) => (
+                  <div
+                    key={conn.identifier}
+                    onClick={() => handleConnectionClick(conn.identifier)}
+                    className="group flex items-center gap-3 px-3 py-3 rounded-xl cursor-pointer
+                      bg-gradient-to-r from-muted/60 to-muted/30
+                      dark:from-zinc-800/80 dark:to-zinc-900/60
+                      border border-sky-500/40 dark:border-sky-400/30
+                      [box-shadow:0_0_0_1px_rgba(56,189,248,0.15),0_2px_8px_rgba(56,189,248,0.12)]
+                      dark:[box-shadow:0_0_0_1px_rgba(56,189,248,0.2),0_2px_12px_rgba(56,189,248,0.18)]
+                      hover:border-sky-400/70
+                      hover:[box-shadow:0_0_0_1px_rgba(56,189,248,0.3),0_4px_16px_rgba(56,189,248,0.25)]
+                      dark:hover:[box-shadow:0_0_0_1px_rgba(56,189,248,0.4),0_4px_20px_rgba(56,189,248,0.35)]
+                      active:scale-[0.99] transition-all duration-200"
+                  >
+                    <div className="p-2 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors shrink-0">
+                      <Monitor className="h-4 w-4 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold truncate group-hover:text-primary transition-colors">
+                        {conn.name}
+                      </p>
+                      <div className="flex items-center gap-2 mt-0.5">
                         <Badge
                           variant="outline"
-                          className={cn(
-                            "mt-2 text-xs",
-                            getProtocolColor(conn.protocol),
-                          )}
+                          className={cn('text-xs py-0 h-4 px-1.5', getProtocolColor(conn.protocol))}
                         >
                           {conn.protocol.toUpperCase()}
                         </Badge>
+                        {conn.hostname && (
+                          <span className="text-xs text-muted-foreground truncate">{conn.hostname}</span>
+                        )}
                       </div>
                     </div>
-                    <ExternalLink className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <Button
-                    className="w-full"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleConnectionClick(conn.identifier);
-                    }}
-                  >
-                    <Play className="h-4 w-4 mr-2" />
-                    Connect
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {filteredConnections.map((conn) => (
-              <Card
-                key={conn.identifier}
-                className="group hover:shadow-md hover:border-primary/50 transition-all cursor-pointer"
-                onClick={() => handleConnectionClick(conn.identifier)}
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4 flex-1">
-                      <div className="p-3 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
-                        <Monitor className="h-5 w-5 text-primary" />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="font-semibold group-hover:text-primary transition-colors">
-                          {conn.name}
-                        </h3>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Badge
-                            variant="outline"
-                            className={cn(
-                              "text-xs",
-                              getProtocolColor(conn.protocol),
-                            )}
-                          >
-                            {conn.protocol.toUpperCase()}
-                          </Badge>
-                          {conn.hostname && (
-                            <span className="text-xs text-muted-foreground">
-                              {conn.hostname}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <Button
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleConnectionClick(conn.identifier);
-                      }}
+                    <div
+                      className="shrink-0 flex items-center gap-1.5
+                      px-2.5 py-1 rounded-lg
+                      bg-primary/8 dark:bg-primary/15
+                      border border-primary/20
+                      text-primary text-xs font-semibold
+                      group-hover:bg-primary group-hover:border-primary group-hover:text-primary-foreground
+                      transition-all duration-200"
                     >
-                      <Play className="h-4 w-4 mr-2" />
                       Connect
-                    </Button>
+                      <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform duration-200" />
+                    </div>
                   </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )
-      ) : (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <div className="p-4 bg-muted rounded-full mb-4">
-              <Monitor className="h-8 w-8 text-muted-foreground" />
+                ))}
+              </div>
+            )
+          ) : (
+            <div className="flex flex-col items-center justify-center py-16 rounded-xl border bg-muted/20">
+              <div className="p-4 bg-muted rounded-full mb-4">
+                <Monitor className="h-7 w-7 text-muted-foreground" />
+              </div>
+              <h3 className="text-base font-semibold mb-1">No connections found</h3>
+              <p className="text-xs text-muted-foreground text-center max-w-sm">
+                {searchQuery || selectedProtocol !== 'all'
+                  ? 'Try adjusting your filters or search query.'
+                  : 'Contact your administrator to get access to remote desktops.'}
+              </p>
             </div>
-            <h3 className="text-lg font-semibold mb-2">No connections found</h3>
-            <p className="text-sm text-muted-foreground text-center max-w-md">
-              {searchQuery || selectedProtocol !== "all"
-                ? "Try adjusting your filters or search query"
-                : "Contact your administrator to get access to remote desktops"}
+          )}
+        </TabsContent>
+
+        {/* ── RECENT TAB ───────────────────────────────────────────────── */}
+        <TabsContent value="recent" className="mt-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-muted-foreground">
+              Your last <span className="font-semibold text-foreground">20</span> sessions
             </p>
-          </CardContent>
-        </Card>
-      )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs gap-1.5"
+              onClick={fetchRecentConnections}
+              disabled={loadingRecent}
+            >
+              <RefreshCw className={cn('h-3.5 w-3.5', loadingRecent && 'animate-spin')} />
+              Refresh
+            </Button>
+          </div>
+
+          {loadingRecent ? (
+            <div className="space-y-2">
+              {[1, 2, 3, 4].map((i) => (
+                <Skeleton key={i} className="h-20 rounded-xl" />
+              ))}
+            </div>
+          ) : recentConnections.length > 0 ? (
+            <div className="space-y-2">
+              {recentConnections.map((conn, idx) => (
+                <div
+                  key={conn.identifier}
+                  onClick={() => handleConnectionClick(conn.identifier)}
+                  className="group flex items-center gap-3 px-3 py-3 rounded-xl cursor-pointer
+                    bg-gradient-to-r from-muted/60 to-muted/30
+                    dark:from-zinc-800/80 dark:to-zinc-900/60
+                    border border-sky-500/40 dark:border-sky-400/30
+                    [box-shadow:0_0_0_1px_rgba(56,189,248,0.15),0_2px_8px_rgba(56,189,248,0.12)]
+                    dark:[box-shadow:0_0_0_1px_rgba(56,189,248,0.2),0_2px_12px_rgba(56,189,248,0.18)]
+                    hover:border-sky-400/70
+                    hover:[box-shadow:0_0_0_1px_rgba(56,189,248,0.3),0_4px_16px_rgba(56,189,248,0.25)]
+                    dark:hover:[box-shadow:0_0_0_1px_rgba(56,189,248,0.4),0_4px_20px_rgba(56,189,248,0.35)]
+                    active:scale-[0.99] transition-all duration-200"
+                >
+                  {/* Rank number */}
+                  <span className="text-xs font-bold text-muted-foreground/40 w-5 text-right shrink-0">
+                    {idx + 1}
+                  </span>
+
+                  {/* Icon */}
+                  <div className="p-2 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors shrink-0">
+                    <Monitor className="h-4 w-4 text-primary" />
+                  </div>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold truncate group-hover:text-primary transition-colors">
+                      {conn.name}
+                    </p>
+                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                      <Badge
+                        variant="outline"
+                        className={cn('text-xs py-0 h-4 px-1.5', getProtocolColor(conn.protocol))}
+                      >
+                        {conn.protocol.toUpperCase()}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {formatDistanceToNow(new Date(conn.lastUsed), { addSuffix: true })}
+                      </span>
+                      {conn.duration && (
+                        <span className="text-xs text-muted-foreground">· {conn.duration}min session</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Connect CTA */}
+                  <div
+                    className="shrink-0 flex items-center gap-1.5
+                    px-2.5 py-1 rounded-lg
+                    bg-primary/8 dark:bg-primary/15
+                    border border-primary/20
+                    text-primary text-xs font-semibold
+                    group-hover:bg-primary group-hover:border-primary group-hover:text-primary-foreground
+                    transition-all duration-200"
+                  >
+                    Connect
+                    <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform duration-200" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-16 rounded-xl border bg-muted/20">
+              <div className="p-4 bg-muted rounded-full mb-4">
+                <Clock className="h-7 w-7 text-muted-foreground" />
+              </div>
+              <h3 className="text-base font-semibold mb-1">No recent connections</h3>
+              <p className="text-xs text-muted-foreground mb-4">
+                Start connecting to see your session history here.
+              </p>
+              <Button
+                size="sm"
+                className="h-8 text-xs gap-1.5"
+                onClick={() => {
+                  const allTab = document.querySelector('[data-value="all"]') as HTMLElement;
+                  allTab?.click();
+                }}
+              >
+                Browse All Connections
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

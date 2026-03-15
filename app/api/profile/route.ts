@@ -1,6 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
+import { profileUpdateSchema } from '@/lib/validations/auth';
+import { rateLimiters } from '@/lib/rate-limit';
+import { z } from 'zod';
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,15 +18,12 @@ export async function GET(request: NextRequest) {
     const guacamoleUrl = process.env.NEXT_PUBLIC_GUACAMOLE_URL || 'localhost:8080/guacamole';
     const baseURL = `http://${guacamoleUrl}`;
 
-    // Fetch user details
     const userResponse = await axios.request({
       method: 'get',
       maxBodyLength: Infinity,
-      url: `${baseURL}/api/session/data/${dataSource}/users/${username}`,
+      url: `${baseURL}/api/session/data/${dataSource}/users/${encodeURIComponent(username)}`,
       params: { token },
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       validateStatus: () => true,
     });
 
@@ -39,23 +39,22 @@ export async function GET(request: NextRequest) {
       fullName: userData.attributes?.['guac-full-name'] ?? null,
       organization: userData.attributes?.['guac-organization'] ?? null,
       organizationalRole: userData.attributes?.['guac-organizational-role'] ?? null,
-      role: 'user',
       lastActive: userData.lastActive ? new Date(userData.lastActive).toISOString() : null,
       accountCreated: null,
     });
   } catch (error: any) {
     console.error('Profile fetch error:', error.message);
-    return NextResponse.json(
-      {
-        error: 'Failed to fetch profile',
-        details: error.message,
-      },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: 'Failed to fetch profile', details: error.message }, { status: 500 });
   }
 }
 
 export async function PUT(request: NextRequest) {
+  // Rate limiting
+  const rateLimitResponse = await rateLimiters.api(request);
+  if (rateLimitResponse) {
+    return rateLimitResponse;
+  }
+
   try {
     const token = request.nextUrl.searchParams.get('token');
     const dataSource = request.nextUrl.searchParams.get('dataSource');
@@ -66,6 +65,9 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Validate input with Zod
+    const validatedData = profileUpdateSchema.parse(body);
+
     const guacamoleUrl = process.env.NEXT_PUBLIC_GUACAMOLE_URL || 'localhost:8080/guacamole';
     const baseURL = `http://${guacamoleUrl}`;
 
@@ -73,36 +75,32 @@ export async function PUT(request: NextRequest) {
     const getCurrentResponse = await axios.request({
       method: 'get',
       maxBodyLength: Infinity,
-      url: `${baseURL}/api/session/data/${dataSource}/users/${username}`,
+      url: `${baseURL}/api/session/data/${dataSource}/users/${encodeURIComponent(username)}`,
       params: { token },
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       validateStatus: () => true,
     });
 
     const currentUser = getCurrentResponse.data || {};
 
-    // Update user attributes - use full name directly
+    // Update user attributes
     const updateData = {
       ...currentUser,
       attributes: {
         ...currentUser.attributes,
-        'guac-full-name': body.fullName || '',
-        'guac-email-address': body.email || '',
-        'guac-organization': body.organization || '',
-        'guac-organizational-role': body.organizationalRole || '',
+        'guac-full-name': validatedData.fullName || '',
+        'guac-email-address': validatedData.email || '',
+        'guac-organization': validatedData.organization || '',
+        'guac-organizational-role': validatedData.organizationalRole || '',
       },
     };
 
     const response = await axios.request({
       method: 'put',
       maxBodyLength: Infinity,
-      url: `${baseURL}/api/session/data/${dataSource}/users/${username}`,
+      url: `${baseURL}/api/session/data/${dataSource}/users/${encodeURIComponent(username)}`,
       params: { token },
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       data: updateData,
       validateStatus: () => true,
     });
@@ -116,13 +114,11 @@ export async function PUT(request: NextRequest) {
 
     throw new Error('Failed to update profile');
   } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: 'Validation failed', details: error.errors }, { status: 400 });
+    }
+
     console.error('Profile update error:', error.message);
-    return NextResponse.json(
-      {
-        error: 'Failed to update profile',
-        details: error.message,
-      },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: 'Failed to update profile', details: error.message }, { status: 500 });
   }
 }

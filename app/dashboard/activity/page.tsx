@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useAuthStore } from '@/lib/store';
 import axios from 'axios';
 import { Badge } from '@/components/ui/badge';
@@ -220,16 +220,25 @@ export default function ActivityPage() {
   const [statsLoading, setStatsLoading] = useState(true);
 
   // ── Derived: unique protocols from sessions ───────────────────────────────
-  const protocols = ['all', ...Array.from(new Set(allSessions.map((s) => s.protocol)))];
+  const protocols = useMemo(
+    () => ['all', ...Array.from(new Set(allSessions.map((s) => s.protocol)))],
+    [allSessions],
+  );
 
   // ── Derived: unique machines ──────────────────────────────────────────────
-  const uniqueMachines = new Set(allSessions.map((s) => s.connectionId)).size;
+  const uniqueMachines = useMemo(() => new Set(allSessions.map((s) => s.connectionId)).size, [allSessions]);
 
   // ── Derived: active sessions ──────────────────────────────────────────────
-  const activeSessions = allSessions.filter((s) => s.status === 'ACTIVE').length;
+  const activeSessions = useMemo(
+    () => allSessions.filter((s) => s.status === 'ACTIVE').length,
+    [allSessions],
+  );
 
   // ── Total time ────────────────────────────────────────────────────────────
-  const totalMinutes = allSessions.reduce((acc, s) => acc + s.durationMinutes, 0);
+  const totalMinutes = useMemo(
+    () => allSessions.reduce((acc, s) => acc + s.durationMinutes, 0),
+    [allSessions],
+  );
 
   // ─────────────────────────────────────────────────────────────────────────
   // Fetch: All sessions (no limit — full list for the table)
