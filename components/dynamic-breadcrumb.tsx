@@ -15,7 +15,6 @@ const routeLabels: Record<string, string> = {
   connections: 'Connections',
   activity: 'Activity',
   profile: 'Profile',
-  settings: 'Settings',
   recent: 'Recent',
 };
 

@@ -4,30 +4,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/store';
 import { Button } from '@/components/ui/button';
-import {
-  ArrowLeft,
-  Maximize2,
-  Minimize2,
-  Activity,
-  Settings,
-  Keyboard,
-  Monitor,
-  X,
-  RefreshCwIcon,
-} from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { ArrowLeft, Maximize2, Minimize2, Activity, Monitor, X, RefreshCwIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import Guacamole from 'guacamole-common-js';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import axios from 'axios';
 
 export default function ConnectionPage() {
   const { id } = useParams<{ id: string }>();
@@ -57,6 +40,22 @@ export default function ConnectionPage() {
   }, []);
 
   useEffect(() => setHydrated(true), []);
+
+  // Fetch human-readable connection name by ID
+  useEffect(() => {
+    if (!hydrated || !user?.authToken || !id) return;
+
+    axios
+      .get(`/api/connections/${encodeURIComponent(id)}`, {
+        params: { token: user.authToken, dataSource: user.dataSource ?? 'mysql' },
+      })
+      .then((res) => {
+        setConnectionName(res.data?.name ?? `Connection ${id}`);
+      })
+      .catch(() => {
+        setConnectionName(`Connection ${id}`); // graceful fallback
+      });
+  }, [hydrated, user?.authToken, user?.dataSource, id]);
 
   useEffect(() => {
     if (hydrated && !isAuthenticated) router.push('/');
@@ -338,24 +337,6 @@ export default function ConnectionPage() {
     router.push('/dashboard');
   };
 
-  const sendCtrlAltDel = () => {
-    const client = clientRef.current;
-    if (!client) return;
-
-    // Send Ctrl+Alt+Del combination
-    client.sendKeyEvent(1, 0xffe3); // Ctrl
-    client.sendKeyEvent(1, 0xffe9); // Alt
-    client.sendKeyEvent(1, 0xffff); // Del
-
-    setTimeout(() => {
-      client.sendKeyEvent(0, 0xffff);
-      client.sendKeyEvent(0, 0xffe9);
-      client.sendKeyEvent(0, 0xffe3);
-    }, 100);
-
-    toast.success('Sent Ctrl+Alt+Del');
-  };
-
   if (!hydrated) return null;
 
   return (
@@ -437,42 +418,6 @@ export default function ConnectionPage() {
           )}
 
           <div className="h-6 w-px bg-zinc-700" />
-
-          {/* Controls Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="text-zinc-300 hover:text-white hover:bg-zinc-800">
-                <Settings className="w-4 h-4 mr-2" />
-                Controls
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>Session Controls</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={sendCtrlAltDel}>
-                <Keyboard className="mr-2 h-4 w-4" />
-                Send Ctrl+Alt+Del
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={toggleFullscreen}>
-                {fullscreen ? (
-                  <>
-                    <Minimize2 className="mr-2 h-4 w-4" />
-                    Exit Fullscreen
-                  </>
-                ) : (
-                  <>
-                    <Maximize2 className="mr-2 h-4 w-4" />
-                    Enter Fullscreen
-                  </>
-                )}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setShowControls(!showControls)}>
-                Toggle Controls Bar
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
           <Button
             variant="ghost"
             size="icon"
