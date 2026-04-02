@@ -4,6 +4,7 @@ import axios from 'axios';
 import { profileUpdateSchema } from '@/lib/validations/auth';
 import { rateLimiters } from '@/lib/rate-limit';
 import { z } from 'zod';
+import { getGuacamoleApiUrl } from '@/lib/guacamole-api';
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,8 +16,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const guacamoleUrl = process.env.NEXT_PUBLIC_GUACAMOLE_URL || 'localhost:8080/guacamole';
-    const baseURL = `http://${guacamoleUrl}`;
+    const baseURL = getGuacamoleApiUrl();
 
     const userResponse = await axios.request({
       method: 'get',
@@ -68,8 +68,7 @@ export async function PUT(request: NextRequest) {
     // Validate input with Zod
     const validatedData = profileUpdateSchema.parse(body);
 
-    const guacamoleUrl = process.env.NEXT_PUBLIC_GUACAMOLE_URL || 'localhost:8080/guacamole';
-    const baseURL = `http://${guacamoleUrl}`;
+    const baseURL = getGuacamoleApiUrl();
 
     // Get current user data first
     const getCurrentResponse = await axios.request({

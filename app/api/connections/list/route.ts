@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
+import { getGuacamoleApiUrl } from '@/lib/guacamole-api';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/connections/list
@@ -23,8 +24,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'dataSource is required' }, { status: 400 });
     }
 
-    const guacamoleUrl = process.env.NEXT_PUBLIC_GUACAMOLE_URL || 'localhost:8080/guacamole';
-    const baseURL = `http://${guacamoleUrl}`;
+    const baseURL = getGuacamoleApiUrl();
 
     // ── Fetch all connections from Guacamole ──────────────────────────────
     const response = await axios.request({

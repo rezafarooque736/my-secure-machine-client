@@ -15,7 +15,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     const res = await axios.get(
-      `${guacBase()}/api/session/data/${dataSource}/connections/${encodeURIComponent(id)}`,
+      `${guacBase}/api/session/data/${dataSource}/connections/${encodeURIComponent(id)}`,
       {
         params: { token },
         headers: { 'Content-Type': 'application/json' },

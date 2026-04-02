@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
+import { getGuacamoleApiUrl } from '@/lib/guacamole-api';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/connections
@@ -17,10 +18,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const guacamoleUrl = process.env.NEXT_PUBLIC_GUACAMOLE_URL ?? 'localhost:8080/guacamole';
-    const base = `http://${guacamoleUrl}`;
+    const baseUrl = getGuacamoleApiUrl();
 
-    const res = await axios.get(`${base}/api/session/data/${dataSource}/connections`, {
+    const res = await axios.get(`${baseUrl}/api/session/data/${dataSource}/connections`, {
       params: { token },
       headers: { 'Content-Type': 'application/json' },
       validateStatus: () => true,

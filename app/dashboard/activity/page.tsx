@@ -857,8 +857,8 @@ export default function ActivityPage() {
                     }}
                   />
                   <Tooltip
-                    formatter={(v: number | undefined) =>
-                      v !== undefined ? [`${v} minutes`, 'Duration'] : ['0 minutes', 'Duration']
+                    formatter={(value: any) =>
+                      value !== undefined ? [`${value} minutes`, 'Duration'] : ['0 minutes', 'Duration']
                     }
                     contentStyle={{
                       backgroundColor: 'oklch(81.1% 0.111 293.571)',

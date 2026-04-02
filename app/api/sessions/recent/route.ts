@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
+import { getGuacamoleApiUrl } from '@/lib/guacamole-api';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/sessions/recent
@@ -81,8 +82,7 @@ export async function GET(request: NextRequest) {
       Math.max(1, parseInt(limitParam ?? '5', 10) || 5),
     );
 
-    const guacamoleUrl = process.env.NEXT_PUBLIC_GUACAMOLE_URL || 'localhost:8080/guacamole';
-    const baseURL = `http://${guacamoleUrl}`;
+    const baseURL = getGuacamoleApiUrl();
 
     // ── Step 1: Fetch all connections ─────────────────────────────────────
     const connectionsRes = await axios.request({

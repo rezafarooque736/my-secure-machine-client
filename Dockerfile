@@ -1,78 +1,67 @@
 # =============================================================================
-# PRODUCTION DOCKERFILE FOR NEXT.JS 15.5 WITH STANDALONE OUTPUT (ALPINE)
+# PRODUCTION DOCKERFILE FOR NEXT.JS WITH STANDALONE OUTPUT (NPM)
 # =============================================================================
 
 ############################
 # Stage 1: Dependencies
 ############################
-FROM node:20-alpine AS deps
+FROM node:24-alpine AS deps
 
 WORKDIR /app
 
-# Install pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
-
-# Install native build dependencies
+# Install build dependencies (for Prisma and native modules)
 RUN apk add --no-cache \
-    python3 make g++ build-base libc6-compat openssl ca-certificates \
-    cairo-dev pango-dev jpeg-dev giflib-dev pixman-dev librsvg-dev musl-dev
+    python3 make g++ build-base libc6-compat openssl ca-certificates
 
 # Copy package files
-COPY package.json pnpm-lock.yaml ./
-COPY prisma ./prisma/
+COPY package.json package-lock.json ./
+COPY prisma ./prisma
 
-# Install node_modules
-RUN pnpm install --frozen-lockfile --ignore-scripts
+# Install dependencies (including dev dependencies for build)
+RUN npm ci
 
 ############################
 # Stage 2: Builder
 ############################
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 
 WORKDIR /app
 
-# Install pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
-
+# Install build dependencies
 RUN apk add --no-cache \
-    python3 make g++ build-base libc6-compat openssl ca-certificates \
-    cairo-dev pango-dev jpeg-dev giflib-dev pixman-dev librsvg-dev musl-dev
+    python3 make g++ build-base libc6-compat openssl ca-certificates
 
-# Dummy DB URL for build
-ENV DATABASE_URL="postgresql://user:pass@localhost:5432/db?schema=public"
-ENV SKIP_ENV_VALIDATION=1
-
-# Copy node_modules
+# Copy dependencies from previous stage
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/prisma ./prisma
 
-# Copy full application
+
+# Copy the rest of the application
 COPY . .
 
+# Set environment variables for build
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
+# Dummy DB URL for build (will be overridden at runtime)
+# ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
+ENV DATABASE_URL="postgresql://postgres:1234@localhost:5432/guacamole_db"
 
-# Re-generate client inside builder stage (safe)
+# Generate Prisma client
 RUN npx prisma generate
 
 # Build Next.js app
-RUN pnpm run build
+RUN npm run build
 
 ############################
 # Stage 3: Runtime
 ############################
-FROM node:20-alpine AS runner
+FROM node:24-alpine AS runner
 
 WORKDIR /app
 
-# Install pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
-
-# Install runtime dependencies
+# Install runtime dependencies (including dumb-init for graceful shutdown)
 RUN apk add --no-cache \
-    libc6-compat openssl ca-certificates wget curl dumb-init \
-    netcat-openbsd cairo pango jpeg giflib pixman librsvg && \
-    apk upgrade --no-cache && \
+    libc6-compat openssl ca-certificates dumb-init netcat-openbsd && \
     rm -rf /var/cache/apk/*
 
 ENV NODE_ENV=production
@@ -84,36 +73,29 @@ ENV HOSTNAME="0.0.0.0"
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
-# Upload dirs
-RUN mkdir -p /app/public/uploads/avatars \
-    /app/public/uploads/posters \
-    /app/public/uploads/resources \
-    /app/logs
+RUN mkdir -p /app/logs
 
-# Copy built standalone app
+# Copy standalone output and static files
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
-# Fix permissions
-RUN chown -R nextjs:nodejs /app/public/uploads /app/logs && \
-    chmod -R 755 /app/public/uploads /app/logs
-
 # Copy Prisma files (needed for migrations at runtime)
-COPY --from=builder --chown=nextjs:nodejs /app/generated/prisma ./generated/prisma
+COPY --from=builder --chown=nextjs:nodejs /app/lib/generated/prisma ./lib/generated/prisma
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 
 # Copy entrypoint script
 COPY --chown=nextjs:nodejs docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
+# Fix permissions
+RUN chown -R nextjs:nodejs /app/logs && \
+    chmod -R 755 /app/logs
+
 # Switch to non-root user
 USER nextjs
 
 EXPOSE 3000
-
-ENV PORT=3000
-ENV HOSTNAME="0.0.0.0"
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \

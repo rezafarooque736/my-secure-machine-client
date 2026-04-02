@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
+import { getGuacamoleApiUrl } from '@/lib/guacamole-api';
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,8 +11,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const guacamoleUrl = process.env.NEXT_PUBLIC_GUACAMOLE_URL || 'localhost:8080/guacamole';
-    const baseURL = `http://${guacamoleUrl}`;
+    const baseURL = getGuacamoleApiUrl();
 
     // ── 1. Active sessions ──────────────────────────────────────────────────
     const sessionsResponse = await axios.request({

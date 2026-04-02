@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
 import { prisma } from '@/lib/prisma';
+import { getGuacamoleApiUrl } from '@/lib/guacamole-api';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helper: Verify token with Guacamole
@@ -11,8 +12,7 @@ async function verifyToken(
   dataSource: string,
 ): Promise<{ valid: boolean; username?: string }> {
   try {
-    const guacamoleUrl = process.env.NEXT_PUBLIC_GUACAMOLE_URL || 'localhost:8080/guacamole';
-    const baseURL = `http://${guacamoleUrl}`;
+    const baseURL = getGuacamoleApiUrl();
 
     const res = await axios.request({
       method: 'get',
