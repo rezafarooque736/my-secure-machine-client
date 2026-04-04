@@ -4,13 +4,14 @@ import axios from 'axios';
 import { changePasswordSchema } from '@/lib/validations/auth';
 import { rateLimiters } from '@/lib/rate-limit';
 import { z } from 'zod';
+import { getGuacamoleApiUrl } from '@/lib/guacamole-api';
 
-const guacBase = () => `http://${process.env.NEXT_PUBLIC_GUACAMOLE_URL ?? 'localhost:8080/guacamole'}`;
+const baseUrl = getGuacamoleApiUrl();
 
 async function getGuacToken(username: string, password: string): Promise<string | null> {
   try {
     const res = await axios.post(
-      `${guacBase()}/api/tokens`,
+      `${baseUrl}/api/tokens`,
       new URLSearchParams({ username, password }).toString(),
       {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -25,7 +26,7 @@ async function getGuacToken(username: string, password: string): Promise<string 
 
 async function revokeGuacToken(token: string): Promise<void> {
   try {
-    await axios.delete(`${guacBase()}/api/tokens/${token}`, {
+    await axios.delete(`${baseUrl}/api/tokens/${token}`, {
       params: { token },
       validateStatus: () => true,
     });
@@ -69,7 +70,7 @@ export async function PUT(request: NextRequest) {
 
     // Change password using the fresh validated token
     const changeRes = await axios.put(
-      `${guacBase()}/api/session/data/${dataSource}/users/${encodeURIComponent(username)}/password`,
+      `${baseUrl}/api/session/data/${dataSource}/users/${encodeURIComponent(username)}/password`,
       { oldPassword, newPassword },
       {
         params: { token: freshToken },

@@ -1,10 +1,11 @@
+import { getGuacamoleApiUrl } from '@/lib/guacamole-api';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/prisma';
 import { rateLimiters } from '@/lib/rate-limit';
 
-const GUACAMOLE_URL = process.env.GUACAMOLE_API_URL || 'http://localhost:8080/guacamole';
+const baseUrl = getGuacamoleApiUrl();
 
 function getClientIp(request: NextRequest): string {
   return (
@@ -45,7 +46,7 @@ export async function DELETE(request: NextRequest) {
     console.log(`[AUTH] Logout – user: ${username} | ip: ${ipAddress}`);
 
     // Revoke token from Guacamole
-    const guacRes = await fetch(`${GUACAMOLE_URL}/api/tokens/${token}`, {
+    const guacRes = await fetch(`${baseUrl}/api/tokens/${token}`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
     });

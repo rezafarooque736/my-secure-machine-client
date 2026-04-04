@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
-
-const guacBase = () => `http://${process.env.NEXT_PUBLIC_GUACAMOLE_URL ?? 'localhost:8080/guacamole'}`;
+import { getGuacamoleApiUrl } from '@/lib/guacamole-api';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -14,8 +13,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const baseUrl = getGuacamoleApiUrl();
+
     const res = await axios.get(
-      `${guacBase}/api/session/data/${dataSource}/connections/${encodeURIComponent(id)}`,
+      `${baseUrl}/api/session/data/${dataSource}/connections/${encodeURIComponent(id)}`,
       {
         params: { token },
         headers: { 'Content-Type': 'application/json' },

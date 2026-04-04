@@ -2,19 +2,19 @@ services:
   # PostgreSQL for Next.js app
   postgres:
     image: postgres:17-alpine
-    container_name: postgres_db
+    container_name: postgres_db_container
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-1234}
-      POSTGRES_DB: ${POSTGRES_DB:-guacamole_db}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
       TZ: Asia/Kolkata
     volumes:
       - postgres-data:/var/lib/postgresql/data
     ports:
       - '5432:5432' # exposed on host for debugging (optional)
     healthcheck:
-      test: ['CMD', 'pg_isready', '-U', '${POSTGRES_USER:-postgres}']
+      test: ['CMD', 'pg_isready', '-U', '${POSTGRES_USER}', '-d', '${POSTGRES_DB}']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -23,7 +23,7 @@ services:
 
   # VNC Desktop Service
   vnc-desktop:
-    container_name: vnc-desktop
+    container_name: vnc-desktop-container
     image: consol/ubuntu-xfce-vnc:latest
     restart: unless-stopped
     networks:
@@ -32,9 +32,9 @@ services:
       - '5901:5901'
       - '6901:6901'
     environment:
-      - VNC_PW=${VNC_PASSWORD:-vncpassword}
-      - VNC_RESOLUTION=${VNC_RESOLUTION:-1920x1080}
-      - VNC_COL_DEPTH=${VNC_COLOR_DEPTH:-24}
+      - VNC_PW=${VNC_PASSWORD}
+      - VNC_RESOLUTION=${VNC_RESOLUTION}
+      - VNC_COL_DEPTH=${VNC_COLOR_DEPTH}
     volumes:
       - vnc-home:/headless
     shm_size: '2gb'
@@ -58,10 +58,10 @@ services:
     networks:
       - secure-machine-network
     environment:
-      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
-      MARIADB_DATABASE: ${DB_NAME}
-      MARIADB_USER: ${DB_USER}
-      MARIADB_PASSWORD: ${DB_PASSWORD}
+      MARIADB_ROOT_PASSWORD: ${MariaDB_ROOT_PASSWORD}
+      MARIADB_DATABASE: ${MariaDB_NAME}
+      MARIADB_USER: ${MariaDB_USER}
+      MARIADB_PASSWORD: ${MariaDB_PASSWORD}
       MARIADB_AUTO_UPGRADE: '1'
     volumes:
       - db-data:/var/lib/mysql
@@ -89,11 +89,11 @@ services:
       GUACD_PORT: '4822'
 
       # Database Configuration
-      MYSQL_HOSTNAME: ${DB_HOST}
-      MYSQL_PORT: ${DB_PORT}
-      MYSQL_DATABASE: ${DB_NAME}
-      MYSQL_USER: ${DB_USER}
-      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_HOSTNAME: ${MariaDB_HOSTNAME}
+      MYSQL_PORT: ${MariaDB_PORT}
+      MYSQL_DATABASE: ${MariaDB_NAME}
+      MYSQL_USER: ${MariaDB_USER}
+      MYSQL_PASSWORD: ${MariaDB_PASSWORD}
 
       # Application Configuration
       WEBAPP_CONTEXT: 'guacamole'
@@ -141,11 +141,6 @@ services:
     image: guacamole-nextjs-app:latest
     restart: unless-stopped
     env_file: .env
-    environment:
-      - GUACAMOLE_API_URL=http://guacamole:8080/guacamole
-      - DATABASE_URL=postgresql://postgres:1234@postgres:5432/guacamole_db
-      - NEXT_PUBLIC_GUACAMOLE_URL=localhost:8080/guacamole # keep for client-side
-      - NEXT_PUBLIC_WEBSOCKET_URL=ws://localhost:8080/guacamole/websocket-tunnel
     networks:
       - secure-machine-network
     ports:

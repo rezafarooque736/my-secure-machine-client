@@ -5,8 +5,9 @@ import { prisma } from '@/lib/prisma';
 import { loginSchema } from '@/lib/validations/auth';
 import { rateLimiters } from '@/lib/rate-limit';
 import { z } from 'zod';
+import { getGuacamoleApiUrl } from '@/lib/guacamole-api';
 
-const GUACAMOLE_URL = process.env.GUACAMOLE_API_URL || 'http://localhost:8080/guacamole';
+const baseUrl = getGuacamoleApiUrl();
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -79,7 +80,7 @@ export async function POST(request: NextRequest) {
     formData.append('username', username);
     formData.append('password', password);
 
-    const guacRes = await fetch(`${GUACAMOLE_URL}/api/tokens`, {
+    const guacRes = await fetch(`${baseUrl}/api/tokens`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: formData.toString(),

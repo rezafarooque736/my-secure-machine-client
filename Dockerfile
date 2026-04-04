@@ -35,7 +35,6 @@ RUN apk add --no-cache \
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/prisma ./prisma
 
-
 # Copy the rest of the application
 COPY . .
 
@@ -43,8 +42,7 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 # Dummy DB URL for build (will be overridden at runtime)
-# ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
-ENV DATABASE_URL="postgresql://postgres:1234@localhost:5432/guacamole_db"
+ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
 
 # Generate Prisma client
 RUN npx prisma generate
@@ -80,9 +78,15 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
-# Copy Prisma files (needed for migrations at runtime)
+# 🔥 IMPORTANT: include node_modules
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
+
+# Prisma files
 COPY --from=builder --chown=nextjs:nodejs /app/lib/generated/prisma ./lib/generated/prisma
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
+COPY --from=builder --chown=nextjs:nodejs /app/prisma.config.ts ./prisma.config.ts
+COPY --from=builder --chown=nextjs:nodejs /app/next.config.ts ./next.config.ts
+COPY .env .env
 
 # Copy entrypoint script
 COPY --chown=nextjs:nodejs docker-entrypoint.sh /usr/local/bin/
@@ -103,4 +107,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 
 # Use entrypoint to run migrations before starting app
 ENTRYPOINT ["docker-entrypoint.sh"]
-CMD ["node", "server.js"]
+CMD ["sh", "-c", "npm run db:deploy && node server.js"]

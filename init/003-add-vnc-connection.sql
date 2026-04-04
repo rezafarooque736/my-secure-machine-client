@@ -8,7 +8,7 @@ SET @connection_id = LAST_INSERT_ID();
 INSERT INTO guacamole_connection_parameter (connection_id, parameter_name, parameter_value) VALUES
 (@connection_id, 'hostname', 'vnc-desktop'),
 (@connection_id, 'port', '5901'),
-(@connection_id, 'password', 'vncpassword'),
+(@connection_id, 'password', '53J7Qr28SuT6w5'),
 (@connection_id, 'color-depth', '24'),
 (@connection_id, 'cursor', 'remote'),
 (@connection_id, 'autoretry', '5');
