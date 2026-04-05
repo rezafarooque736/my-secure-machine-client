@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { LRUCache } from 'lru-cache';
 
 interface RateLimitConfig {
-  interval: number; // ms
+  interval: number; // milliseconds
   maxRequests: number;
 }
 
@@ -11,6 +11,10 @@ const cache = new LRUCache<string, number[]>({
   ttl: 300000, // 5 minutes
 });
 
+/**
+ * Creates a rate limiter middleware for Next.js API routes.
+ * Uses IP address + path as key.
+ */
 export function rateLimit(config: RateLimitConfig) {
   return async function (request: NextRequest): Promise<NextResponse | null> {
     const ip =
