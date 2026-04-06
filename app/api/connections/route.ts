@@ -41,7 +41,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(connections);
   } catch (error: any) {
-    console.error('[connections] GET error:', error.message);
     return NextResponse.json([], { status: 200 }); // non-fatal — return empty
   }
 }

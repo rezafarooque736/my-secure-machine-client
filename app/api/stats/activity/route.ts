@@ -159,7 +159,6 @@ export async function GET(request: NextRequest) {
       sessionHistory,
     });
   } catch (error: any) {
-    console.error('Activity stats error:', error.message);
     return NextResponse.json(
       {
         error: 'Failed to fetch activity statistics',

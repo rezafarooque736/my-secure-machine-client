@@ -2,14 +2,13 @@
 
 import * as React from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { ChevronDown, LogOut, Settings, User, Shield } from 'lucide-react';
+import { ChevronDown, LogOut } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -17,17 +16,7 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
-  useSidebar,
 } from '@/components/ui/sidebar';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useAuthStore } from '@/lib/store';
@@ -150,7 +139,7 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <div
               onClick={handleLogout}
-              className="text-destructive bg-accent rounded-lg flex justify-start items-center px-4 py-2 font-medium cursor-pointer"
+              className="text-destructive bg-foreground/10 gap-2 rounded-lg flex justify-start items-center px-4 py-2 font-medium cursor-pointer"
             >
               <LogOut className="mr-2 h-4 w-4" />
               Log out

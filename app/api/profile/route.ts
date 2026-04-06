@@ -43,7 +43,6 @@ export async function GET(request: NextRequest) {
       accountCreated: null,
     });
   } catch (error: any) {
-    console.error('Profile fetch error:', error.message);
     return NextResponse.json({ error: 'Failed to fetch profile', details: error.message }, { status: 500 });
   }
 }
@@ -117,7 +116,6 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Validation failed', details: error.errors }, { status: 400 });
     }
 
-    console.error('Profile update error:', error.message);
     return NextResponse.json({ error: 'Failed to update profile', details: error.message }, { status: 500 });
   }
 }

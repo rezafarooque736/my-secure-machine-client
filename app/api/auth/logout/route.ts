@@ -1,7 +1,6 @@
 import { getGuacamoleApiUrl } from '@/lib/guacamole-api';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server';
-import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/prisma';
 import { rateLimiters } from '@/lib/rate-limit';
 
@@ -43,8 +42,6 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Token is required' }, { status: 400 });
     }
 
-    console.log(`[AUTH] Logout – user: ${username} | ip: ${ipAddress}`);
-
     // Revoke token from Guacamole
     const guacRes = await fetch(`${baseUrl}/api/tokens/${token}`, {
       method: 'DELETE',
@@ -52,51 +49,28 @@ export async function DELETE(request: NextRequest) {
     });
 
     const guacOk = guacRes.status < 500;
-    if (!guacOk) {
-      console.warn(`[AUTH] Guacamole token revocation failed: ${guacRes.status}`);
-    }
 
     // Close UserSession record if sessionId provided
     if (sessionId) {
-      try {
-        const existing = await prisma.userSession.findUnique({
+      const existing = await prisma.userSession.findUnique({
+        where: { id: sessionId },
+      });
+
+      if (existing && existing.isActive) {
+        const now = new Date();
+        const durationMin = Math.max(0, Math.floor((now.getTime() - existing.loginTime.getTime()) / 60000));
+
+        await prisma.userSession.update({
           where: { id: sessionId },
+          data: {
+            logoutTime: now,
+            durationMin,
+            isActive: false,
+            logoutReason: 'MANUAL',
+          },
         });
-
-        if (existing && existing.isActive) {
-          const now = new Date();
-          const durationMin = Math.max(0, Math.floor((now.getTime() - existing.loginTime.getTime()) / 60000));
-
-          await prisma.userSession.update({
-            where: { id: sessionId },
-            data: {
-              logoutTime: now,
-              durationMin,
-              isActive: false,
-              logoutReason: 'MANUAL',
-            },
-          });
-
-          console.log(`[AUTH] Session closed – id: ${sessionId} | duration: ${durationMin}m`);
-        }
-      } catch (sessionErr: any) {
-        console.warn('[AUTH] Could not close UserSession:', sessionErr.message);
       }
     }
-    // Write audit log
-    await logger
-      .log({
-        level: 'INFO',
-        category: 'AUTH',
-        message: `User "${username}" logged out`,
-        username,
-        ipAddress,
-        metadata: {
-          sessionId: sessionId ?? null,
-          tokenPrefix: token.substring(0, 10) + '...',
-        },
-      })
-      .catch(() => {});
 
     return NextResponse.json(
       { message: 'Logged out successfully' },
@@ -107,7 +81,6 @@ export async function DELETE(request: NextRequest) {
       },
     );
   } catch (error: any) {
-    console.error('[AUTH] Logout error:', error.message);
     return NextResponse.json({ error: 'Internal server error during logout' }, { status: 500 });
   }
 }

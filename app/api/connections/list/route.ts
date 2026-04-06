@@ -76,7 +76,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(connections);
   } catch (error: any) {
-    console.error('Connections list error:', error.message);
     return NextResponse.json(
       {
         error: 'Internal server error while fetching connections',

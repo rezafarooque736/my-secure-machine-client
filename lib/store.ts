@@ -77,11 +77,11 @@ export const useAuthStore = create<AuthState>()(
           } catch (error) {
             // Non-fatal — always clear local state even if the API call fails
             // (e.g. network offline, token already expired)
-            console.warn('[store] Logout API error (non-fatal):', error);
+            console.warn('[store] Logout API error (non-fatal):');
           }
         }
 
-        // Clear Zustand state — persist middleware will sync to localStorage
+        // Clear Zustand state
         set({ user: null, isAuthenticated: false });
       },
 
@@ -90,7 +90,7 @@ export const useAuthStore = create<AuthState>()(
     }),
 
     {
-      name: 'guac-auth-storage', // localStorage key
+      name: 'guac-auth-storage',
 
       // Only persist these fields — avoids storing transient UI state
       partialize: (state) => ({

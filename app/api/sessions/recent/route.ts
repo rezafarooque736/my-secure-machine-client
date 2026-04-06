@@ -182,7 +182,6 @@ export async function GET(request: NextRequest) {
       limit,
     });
   } catch (error: any) {
-    console.error('Recent sessions error:', error.message);
     return NextResponse.json(
       {
         error: 'Failed to fetch recent sessions',

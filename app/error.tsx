@@ -2,11 +2,11 @@
 // Global error boundary — catches uncaught errors in the App Router tree.
 // Must be a Client Component.
 
-"use client";
+'use client';
 
-import { useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { AlertTriangle } from "lucide-react";
+import { useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { AlertTriangle } from 'lucide-react';
 
 interface ErrorPageProps {
   error: Error & { digest?: string };
@@ -15,8 +15,7 @@ interface ErrorPageProps {
 
 export default function ErrorPage({ error, reset }: ErrorPageProps) {
   useEffect(() => {
-    // Log to console in dev — replace with Sentry/logger in prod
-    console.error("[Global Error Boundary]", error);
+    console.error('[Global Error Boundary]', error);
   }, [error]);
 
   return (
@@ -25,26 +24,19 @@ export default function ErrorPage({ error, reset }: ErrorPageProps) {
         <div className="flex h-14 w-14 items-center justify-center rounded-full bg-destructive/10">
           <AlertTriangle className="h-7 w-7 text-destructive" />
         </div>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Something went wrong
-        </h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Something went wrong</h1>
         <p className="text-muted-foreground max-w-sm text-sm">
-          An unexpected error occurred. Try refreshing the page or contact
-          your administrator if the problem persists.
+          An unexpected error occurred. Try refreshing the page or contact your administrator if the problem
+          persists.
         </p>
         {error.digest && (
-          <p className="text-xs text-muted-foreground/60 font-mono">
-            Error ID: {error.digest}
-          </p>
+          <p className="text-xs text-muted-foreground/60 font-mono">Error ID: {error.digest}</p>
         )}
       </div>
 
       <div className="flex gap-3">
         <Button onClick={reset}>Try Again</Button>
-        <Button
-          variant="outline"
-          onClick={() => (window.location.href = "/")}
-        >
+        <Button variant="outline" onClick={() => (window.location.href = '/')}>
           Back to Login
         </Button>
       </div>

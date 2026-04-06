@@ -42,7 +42,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(sessions);
   } catch (error: any) {
-    console.error('Sessions fetch error:', error.message);
     return NextResponse.json([]);
   }
 }

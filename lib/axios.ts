@@ -1,3 +1,4 @@
+// lib/axios.ts
 import axios from 'axios';
 
 const axiosInstance = axios.create({
@@ -9,35 +10,18 @@ const axiosInstance = axios.create({
   withCredentials: true, // send cookies (including httpOnly) automatically
 });
 
-// Request interceptor
+// Request interceptor – no need to inject token manually
 axiosInstance.interceptors.request.use(
-  (config) => {
-    // Add auth token if available
-    const token = localStorage.getItem('guac-auth-storage');
-    if (token) {
-      try {
-        const parsed = JSON.parse(token);
-        if (parsed?.state?.user?.authToken) {
-          config.params = {
-            ...config.params,
-            token: parsed.state.user.authToken,
-          };
-        }
-      } catch {
-        // Invalid token, ignore
-      }
-    }
-    return config;
-  },
+  (config) => config,
   (error) => Promise.reject(error),
 );
 
-// Response interceptor
+// Response interceptor – handle 401 globally
 axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Handle unauthorized - redirect to login
+      // Redirect to login page
       window.location.href = '/';
     }
     return Promise.reject(error);

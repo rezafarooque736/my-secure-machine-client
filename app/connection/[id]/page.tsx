@@ -74,8 +74,8 @@ export default function ConnectionPage() {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       try {
         clientRef.current?.disconnect();
-      } catch (err) {
-        console.error('Error during beforeunload cleanup:', err);
+      } catch (err: any) {
+        console.error('Error during beforeunload cleanup:');
       }
     };
 
@@ -229,7 +229,7 @@ export default function ConnectionPage() {
       client.onerror = (e: any) => {
         if (cancelled) return;
         clearTimeout(connectionTimeout);
-        console.error('❌ Client error:', e);
+        console.error('❌ Client error:');
         const errorMsg = e?.message || 'Connection error';
         setErr(errorMsg);
         setConnecting(false);

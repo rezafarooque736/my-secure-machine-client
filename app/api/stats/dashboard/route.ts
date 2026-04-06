@@ -128,7 +128,6 @@ export async function GET(request: NextRequest) {
       totalSessionsMonth,
     });
   } catch (error: any) {
-    console.error('Dashboard stats error:', error.message);
     return NextResponse.json(
       {
         error: 'Failed to fetch dashboard statistics',

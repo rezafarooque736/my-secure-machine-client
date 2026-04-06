@@ -38,48 +38,43 @@ export async function GET(request: NextRequest) {
 
     await Promise.all(
       connectionIds.slice(0, 20).map(async (connId) => {
-        try {
-          const historyResponse = await axios.request({
-            method: 'get',
-            maxBodyLength: Infinity,
-            url: `${baseURL}/api/session/data/${dataSource}/connections/${connId}/history`,
-            params: { token },
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            validateStatus: () => true,
-          });
+        const historyResponse = await axios.request({
+          method: 'get',
+          maxBodyLength: Infinity,
+          url: `${baseURL}/api/session/data/${dataSource}/connections/${connId}/history`,
+          params: { token },
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          validateStatus: () => true,
+        });
 
-          if (historyResponse.status === 200 && historyResponse.data) {
-            const history = Array.isArray(historyResponse.data)
-              ? historyResponse.data
-              : Object.values(historyResponse.data);
+        if (historyResponse.status === 200 && historyResponse.data) {
+          const history = Array.isArray(historyResponse.data)
+            ? historyResponse.data
+            : Object.values(historyResponse.data);
 
-            if (history.length > 0) {
-              // Get the most recent session
-              const mostRecent = history.reduce((prev: any, current: any) => {
-                const prevDate = new Date(prev.startDate || 0);
-                const currentDate = new Date(current.startDate || 0);
-                return currentDate > prevDate ? current : prev;
-              });
+          if (history.length > 0) {
+            // Get the most recent session
+            const mostRecent = history.reduce((prev: any, current: any) => {
+              const prevDate = new Date(prev.startDate || 0);
+              const currentDate = new Date(current.startDate || 0);
+              return currentDate > prevDate ? current : prev;
+            });
 
-              const startDate = new Date(mostRecent.startDate);
-              const endDate = mostRecent.endDate ? new Date(mostRecent.endDate) : new Date();
-              const duration = Math.floor((endDate.getTime() - startDate.getTime()) / 60000);
+            const startDate = new Date(mostRecent.startDate);
+            const endDate = mostRecent.endDate ? new Date(mostRecent.endDate) : new Date();
+            const duration = Math.floor((endDate.getTime() - startDate.getTime()) / 60000);
 
-              recentConnections.push({
-                identifier: connId,
-                name: connections[connId].name,
-                protocol: connections[connId].protocol,
-                lastUsed: mostRecent.startDate,
-                duration: duration > 0 ? duration : 0,
-                timestamp: startDate.getTime(),
-              });
-            }
+            recentConnections.push({
+              identifier: connId,
+              name: connections[connId].name,
+              protocol: connections[connId].protocol,
+              lastUsed: mostRecent.startDate,
+              duration: duration > 0 ? duration : 0,
+              timestamp: startDate.getTime(),
+            });
           }
-        } catch (error) {
-          // Skip connections with no history
-          console.log(`No history for connection ${connId}`);
         }
       }),
     );
@@ -92,7 +87,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(sortedRecent);
   } catch (error: any) {
-    console.error('Recent connections error:', error.message);
     return NextResponse.json(
       {
         error: 'Failed to fetch recent connections',

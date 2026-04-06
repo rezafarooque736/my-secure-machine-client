@@ -260,7 +260,7 @@ export default function ActivityPage() {
       setAllSessions(sessions);
       setFilteredSessions(sessions);
     } catch (err) {
-      console.error('Sessions fetch error:', err);
+      console.error('Sessions fetch error:');
       toast.error('Failed to load sessions');
     } finally {
       setSessionsLoading(false);
@@ -283,7 +283,7 @@ export default function ActivityPage() {
       });
       setStats(res.data);
     } catch (err) {
-      console.error('Stats fetch error:', err);
+      console.error('Stats fetch error:');
     } finally {
       setStatsLoading(false);
     }

@@ -369,7 +369,7 @@ export default function DashboardPage() {
         setConnections(connRes.data ?? []);
         setStats(statsRes.data ?? null);
       } catch (err) {
-        console.error('Dashboard main fetch error:', err);
+        console.error('Dashboard main fetch error:');
       } finally {
         setLoading(false);
       }
@@ -384,7 +384,7 @@ export default function DashboardPage() {
         setRecentSessions(res.data?.sessions ?? []);
         setTotalSessions(res.data?.total ?? 0);
       } catch (err) {
-        console.error('Recent sessions fetch error:', err);
+        console.error('Recent sessions fetch error:');
       } finally {
         setSessionsLoading(false);
       }
@@ -396,7 +396,7 @@ export default function DashboardPage() {
         const res = await axios.get('/api/notices', { params });
         setNotices(res.data?.notices ?? []);
       } catch (err) {
-        console.error('Notices fetch error:', err);
+        console.error('Notices fetch error:');
       } finally {
         setNoticesLoading(false);
       }

@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server';
-import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/prisma';
 import { loginSchema } from '@/lib/validations/auth';
 import { rateLimiters } from '@/lib/rate-limit';
@@ -55,13 +54,6 @@ export async function POST(request: NextRequest) {
   // Rate limiting
   const rateLimitResponse = await rateLimiters.login(request);
   if (rateLimitResponse) {
-    await logger.log({
-      level: 'WARN',
-      category: 'AUTH',
-      message: 'Rate limit exceeded for login attempt',
-      ipAddress,
-      metadata: { userAgent },
-    });
     return rateLimitResponse;
   }
 
@@ -87,15 +79,6 @@ export async function POST(request: NextRequest) {
     });
 
     if (!guacRes.ok) {
-      await logger.log({
-        level: 'WARN',
-        category: 'AUTH',
-        message: `Failed login attempt for user "${username}"`,
-        username,
-        ipAddress,
-        metadata: { status: guacRes.status, userAgent },
-      });
-
       await prisma.loginAttempt.create({
         data: {
           username,
@@ -113,13 +96,6 @@ export async function POST(request: NextRequest) {
     const { authToken, username: guacUsername, dataSource, availableDataSources } = guacData;
 
     if (!authToken) {
-      await logger.log({
-        level: 'ERROR',
-        category: 'AUTH',
-        message: `Guacamole returned OK but no token for user "${username}"`,
-        username,
-        ipAddress,
-      });
       return NextResponse.json({ error: 'Authentication failed – no token received' }, { status: 401 });
     }
 
@@ -153,20 +129,6 @@ export async function POST(request: NextRequest) {
           userAgent,
         },
       }),
-      logger.log({
-        level: 'SUCCESS',
-        category: 'AUTH',
-        message: `User "${guacUsername}" logged in successfully`,
-        username: guacUsername,
-        ipAddress,
-        metadata: {
-          sessionId: session.id,
-          browser: uaMeta.browser,
-          os: uaMeta.os,
-          device: uaMeta.device,
-          dataSource,
-        },
-      }),
     ]);
 
     return NextResponse.json(
@@ -190,16 +152,6 @@ export async function POST(request: NextRequest) {
     }
 
     console.error('[AUTH] Login error:', error.message);
-    await logger
-      .log({
-        level: 'ERROR',
-        category: 'AUTH',
-        message: `Login system error for user "${username}": ${error.message}`,
-        username,
-        ipAddress,
-        metadata: { stack: error.stack },
-      })
-      .catch(() => {});
 
     return NextResponse.json(
       {
