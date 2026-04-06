@@ -121,7 +121,6 @@ All API routes are protected by the httpOnly cookie (except /api/auth/login and 
 │ ├── auth.ts # Token verification helpers
 │ ├── cookie.ts # HttpOnly cookie management
 │ ├── rate-limit.ts # IP‑based rate limiter (LRU cache)
-│ ├── logger.ts # Structured logger (console + DB)
 │ ├── prisma.ts # Prisma client singleton
 │ ├── store.ts # Zustand store (no token persisted)
 │ ├── utils.ts # cn() class merger

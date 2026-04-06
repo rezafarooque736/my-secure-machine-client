@@ -65,8 +65,6 @@ export async function POST(request: NextRequest) {
     username = validatedData.username.trim();
     const password = validatedData.password.trim();
 
-    console.log(`[AUTH] Login attempt – user: ${username} | ip: ${ipAddress}`);
-
     // Authenticate with Guacamole
     const formData = new URLSearchParams();
     formData.append('username', username);
@@ -117,8 +115,6 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    console.log(`[AUTH] Session created – id: ${session.id} | user: ${guacUsername}`);
-
     // Record successful login attempt + audit log
     await Promise.all([
       prisma.loginAttempt.create({
@@ -150,8 +146,6 @@ export async function POST(request: NextRequest) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: 'Validation failed', details: error.errors }, { status: 400 });
     }
-
-    console.error('[AUTH] Login error:', error.message);
 
     return NextResponse.json(
       {
