@@ -3,6 +3,7 @@ import { getGuacamoleApiUrl } from '@/lib/guacamole-api';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { rateLimiters } from '@/lib/rate-limit';
+import { UserSessionLogoutReason } from '@/lib/generated/prisma/enums';
 
 const baseUrl = getGuacamoleApiUrl();
 
@@ -66,7 +67,7 @@ export async function DELETE(request: NextRequest) {
             logoutTime: now,
             durationMin,
             isActive: false,
-            logoutReason: 'MANUAL',
+            logoutReason: UserSessionLogoutReason.MANUAL,
           },
         });
       }
