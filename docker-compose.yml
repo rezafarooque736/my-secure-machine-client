@@ -51,28 +51,27 @@ services:
     environment:
       - LOG_LEVEL=info
 
-  guacdb:
-    container_name: guacdb
-    image: mariadb:11.4
+  guac-postgres:
+    image: postgres:17-alpine
+    container_name: guac_postgres
     restart: unless-stopped
-    networks:
-      - secure-machine-network
     environment:
-      MARIADB_ROOT_PASSWORD: ${MariaDB_ROOT_PASSWORD}
-      MARIADB_DATABASE: ${MariaDB_NAME}
-      MARIADB_USER: ${MariaDB_USER}
-      MARIADB_PASSWORD: ${MariaDB_PASSWORD}
-      MARIADB_AUTO_UPGRADE: '1'
+      POSTGRES_USER: ${GUAC_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${GUAC_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${GUAC_POSTGRES_DB}
+      TZ: Asia/Kolkata
     volumes:
-      - db-data:/var/lib/mysql
-      - ./init:/docker-entrypoint-initdb.d:ro
+      - guac-postgres-data:/var/lib/postgresql/data
+      - ./init:/docker-entrypoint-initdb.d:ro # PostgreSQL init scripts
     ports:
-      - '3306:3306'
+      - '5433:5432' # optional, different host port to avoid conflict
     healthcheck:
-      test: ['CMD', 'healthcheck.sh', '--connect', '--innodb_initialized']
+      test: ['CMD', 'pg_isready', '-U', '${GUAC_POSTGRES_USER}', '-d', '${GUAC_POSTGRES_DB}']
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - secure-machine-network
 
   guacamole:
     container_name: guacamole
@@ -89,11 +88,11 @@ services:
       GUACD_PORT: '4822'
 
       # Database Configuration
-      MYSQL_HOSTNAME: ${MariaDB_HOSTNAME}
-      MYSQL_PORT: ${MariaDB_PORT}
-      MYSQL_DATABASE: ${MariaDB_NAME}
-      MYSQL_USER: ${MariaDB_USER}
-      MYSQL_PASSWORD: ${MariaDB_PASSWORD}
+      POSTGRESQL_HOSTNAME: 'guac-postgres'
+      POSTGRESQL_PORT: '5432'
+      POSTGRESQL_DATABASE: ${GUAC_POSTGRES_DB}
+      POSTGRESQL_USER: ${GUAC_POSTGRES_USER}
+      POSTGRESQL_PASSWORD: ${GUAC_POSTGRES_PASSWORD}
 
       # Application Configuration
       WEBAPP_CONTEXT: 'guacamole'
@@ -113,7 +112,7 @@ services:
       DRIVE_ENABLED: 'true'
       DRIVE_PATH: '/drive'
     depends_on:
-      guacdb:
+      guac-postgres:
         condition: service_healthy
       guacd:
         condition: service_started
@@ -154,7 +153,7 @@ services:
       - ./logs:/app/logs
 
 volumes:
-  db-data:
+  guac-postgres-data:
     driver: local
   vnc-home:
     driver: local

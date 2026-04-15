@@ -88,10 +88,6 @@ COPY --from=builder --chown=nextjs:nodejs /app/prisma.config.ts ./prisma.config.
 COPY --from=builder --chown=nextjs:nodejs /app/next.config.ts ./next.config.ts
 COPY .env .env
 
-# Copy entrypoint script
-COPY --chown=nextjs:nodejs docker-entrypoint.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
-
 # Fix permissions
 RUN chown -R nextjs:nodejs /app/logs && \
     chmod -R 755 /app/logs
@@ -106,5 +102,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
 
 # Use entrypoint to run migrations before starting app
-ENTRYPOINT ["docker-entrypoint.sh"]
-CMD ["sh", "-c", "npm run db:deploy && node server.js"]
+CMD ["sh", "-c", "npm run db:deploy && exec node server.js"]
