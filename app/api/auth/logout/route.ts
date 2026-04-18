@@ -7,14 +7,6 @@ import { UserSessionLogoutReason } from '@/lib/generated/prisma/enums';
 
 const baseUrl = getGuacamoleApiUrl();
 
-function getClientIp(request: NextRequest): string {
-  return (
-    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
-    request.headers.get('x-real-ip') ??
-    'unknown'
-  );
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // DELETE /api/auth/logout
 //
@@ -25,8 +17,6 @@ function getClientIp(request: NextRequest): string {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function DELETE(request: NextRequest) {
-  const ipAddress = getClientIp(request);
-
   // Rate limiting
   const rateLimitResponse = await rateLimiters.api(request);
   if (rateLimitResponse) {
@@ -37,19 +27,16 @@ export async function DELETE(request: NextRequest) {
     const p = request.nextUrl.searchParams;
     const token = p.get('token');
     const sessionId = p.get('sessionId');
-    const username = p.get('username') ?? 'unknown';
 
     if (!token) {
       return NextResponse.json({ error: 'Token is required' }, { status: 400 });
     }
 
     // Revoke token from Guacamole
-    const guacRes = await fetch(`${baseUrl}/api/tokens/${token}`, {
+    await fetch(`${baseUrl}/api/tokens/${token}`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
     });
-
-    const guacOk = guacRes.status < 500;
 
     // Close UserSession record if sessionId provided
     if (sessionId) {

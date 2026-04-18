@@ -6,7 +6,6 @@ import { rateLimiters } from '@/lib/rate-limit';
 import { z } from 'zod';
 import { getGuacamoleApiUrl } from '@/lib/guacamole-api';
 
-const baseUrl = getGuacamoleApiUrl();
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -56,6 +55,8 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) {
     return rateLimitResponse;
   }
+
+  const baseUrl = getGuacamoleApiUrl();
 
   try {
     const body = await request.json();
