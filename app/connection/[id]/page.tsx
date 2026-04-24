@@ -47,7 +47,7 @@ export default function ConnectionPage() {
 
     axios
       .get(`/api/connections/${encodeURIComponent(id)}`, {
-        params: { token: user.authToken, dataSource: user.dataSource ?? 'mysql' },
+        params: { token: user.authToken, dataSource: user.dataSource ?? 'postgresql' },
       })
       .then((res) => {
         setConnectionName(res.data?.name ?? `Connection ${id}`);
@@ -242,7 +242,7 @@ export default function ConnectionPage() {
 
       const qs = new URLSearchParams();
       qs.set('token', user.authToken);
-      qs.set('GUAC_DATA_SOURCE', user.dataSource || 'mysql');
+      qs.set('GUAC_DATA_SOURCE', user.dataSource || 'postgresql');
       qs.set('GUAC_ID', id);
       qs.set('GUAC_TYPE', 'c');
       qs.set('GUAC_WIDTH', String(w));

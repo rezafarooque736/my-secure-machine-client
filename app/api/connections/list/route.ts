@@ -6,7 +6,7 @@ import { getGuacamoleApiUrl } from '@/lib/guacamole-api';
 // GET /api/connections/list
 // Query params:
 //   token      – Guacamole auth token
-//   dataSource – e.g. "mysql"
+//   dataSource – e.g. "postgresql"
 //
 // Returns: Array of connection objects with `identifier` injected
 // ─────────────────────────────────────────────────────────────────────────────

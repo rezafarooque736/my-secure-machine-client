@@ -7,7 +7,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const { id } = await params;
     const p = request.nextUrl.searchParams;
     const token = p.get('token');
-    const dataSource = p.get('dataSource') ?? 'mysql';
+    const dataSource = p.get('dataSource') ?? 'postgresql';
 
     if (!token || !id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

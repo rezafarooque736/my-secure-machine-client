@@ -17,6 +17,7 @@ import { ThemeToggle } from '@/components/theme-toggle';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { loginSchema } from '@/lib/validations/auth';
+import { cyberSecurityQuotes } from '@/constants/cyber-security-quotes';
 
 type LoginValues = { username: string; password: string };
 
@@ -53,11 +54,15 @@ function TechCard({
 }
 
 export default function LoginPage() {
+  const loginDelayTime = Number(process.env.NEXT_PUBLIC_APP_LOGIN_DELAY_TIME);
   const router = useRouter();
   const { setAuth, isAuthenticated } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [quote, setQuote] = useState<string | null>(null);
+  const [countdown, setCountdown] = useState(loginDelayTime);
+  const [showLoadingQuotes, setShowLoadingQuotes] = useState(false);
 
   const form = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
@@ -65,9 +70,47 @@ export default function LoginPage() {
   });
 
   useEffect(() => setIsHydrated(true), []);
+
   useEffect(() => {
-    if (isHydrated && isAuthenticated) router.push('/dashboard');
-  }, [isHydrated, isAuthenticated, router]);
+    if (isHydrated && isAuthenticated && !showLoadingQuotes) {
+      router.replace('/dashboard');
+    }
+  }, [isHydrated, isAuthenticated, showLoadingQuotes, router]);
+
+  useEffect(() => {
+    if (!showLoadingQuotes) return;
+
+    const interval = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          router.replace('/dashboard');
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [showLoadingQuotes, router]);
+
+  if (showLoadingQuotes) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-zinc-950">
+        <div className="text-center max-w-lg px-6">
+          <Loader2 className="mx-auto h-12 w-12 text-sky-400 animate-spin mb-6" />
+          <p className="text-white text-xl font-semibold mb-4">{quote}</p>
+          <div className="w-full bg-zinc-800 rounded-full h-2 mb-2">
+            <div
+              className="bg-sky-500 h-2 rounded-full"
+              style={{ width: `${((loginDelayTime - countdown) / loginDelayTime) * 100}%` }}
+            />
+          </div>
+          <p className="text-zinc-400 text-sm">Redirecting in {countdown}s...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Update performLogin function
   const performLogin = async (values: LoginValues) => {
@@ -85,11 +128,16 @@ export default function LoginPage() {
         authToken: res.data.authToken,
         username: res.data.username,
         dataSource: res.data.dataSource,
-        availableDataSources: res.data.availableDataSources ?? ['mysql'],
+        availableDataSources: res.data.availableDataSources ?? ['postgresql'],
         sessionId: res.data.sessionId,
       });
 
-      router.push('/dashboard');
+      // Show quotes for 7 seconds
+      const randomQuote = cyberSecurityQuotes[Math.floor(Math.random() * cyberSecurityQuotes.length)];
+
+      setQuote(randomQuote);
+      setCountdown(loginDelayTime);
+      setShowLoadingQuotes(true);
     } catch (error: any) {
       if (error instanceof z.ZodError) {
         toast.error('Validation Error', {

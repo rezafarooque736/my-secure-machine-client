@@ -6,7 +6,6 @@ import { rateLimiters } from '@/lib/rate-limit';
 import { z } from 'zod';
 import { getGuacamoleApiUrl } from '@/lib/guacamole-api';
 
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
@@ -132,8 +131,8 @@ export async function POST(request: NextRequest) {
       {
         authToken,
         username: guacUsername,
-        dataSource: dataSource ?? 'mysql',
-        availableDataSources: availableDataSources ?? ['mysql'],
+        dataSource: dataSource ?? 'postgresql',
+        availableDataSources: availableDataSources ?? ['postgresql'],
         sessionId: session.id,
       },
       {

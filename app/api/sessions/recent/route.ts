@@ -7,7 +7,7 @@ import { getGuacamoleApiUrl } from '@/lib/guacamole-api';
 // GET /api/sessions/recent
 // Query params:
 //   token      – Guacamole auth token
-//   dataSource – e.g. "mysql"
+//   dataSource – e.g. "postgresql"
 //   limit      – how many to return (default: 5)
 //   username   – optional: filter by a specific user
 //
