@@ -9,12 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Monitor,
-  Activity,
-  Clock,
   ArrowRight,
   Sparkles,
-  Wifi,
-  CalendarClock,
   Megaphone,
   Pin,
   AlertTriangle,
@@ -37,31 +33,6 @@ interface Connection {
   protocol: string;
   hostname?: string | null;
   activeConnections?: number;
-}
-
-interface DashboardStats {
-  activeSessions: number;
-  totalConnections: number;
-  totalUsageToday: string;
-  totalUsageTodayMinutes: number;
-  totalSessionsToday: number;
-  totalUsageMonth: string;
-  totalUsageMonthMinutes: number;
-  totalSessionsMonth: number;
-}
-
-interface RecentSession {
-  historyEntryIdentifier: string;
-  connectionId: string;
-  connectionName: string;
-  username: string;
-  protocol: string;
-  remoteHost: string;
-  startDate: string;
-  endDate: string | null;
-  durationMinutes: number;
-  durationFormatted: string;
-  status: 'ACTIVE' | 'DISCONNECTED';
 }
 
 interface Notice {
@@ -123,7 +94,7 @@ function formatDate(iso: string) {
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit',
-      hour12: false,
+      hour12: true,
     }),
   };
 }
@@ -157,73 +128,6 @@ const NOTICE_META: Record<string, { icon: ElementType; bg: string; border: strin
     color: 'text-green-600 dark:text-green-400',
   },
 };
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Compact Stat Card
-// ─────────────────────────────────────────────────────────────────────────────
-
-function StatCard({
-  icon: Icon,
-  label,
-  value,
-  sub,
-  loading,
-  iconColor = 'text-muted-foreground',
-  iconBg = 'bg-muted',
-}: {
-  icon: ElementType;
-  label: string;
-  value: string | number;
-  sub?: string;
-  loading: boolean;
-  iconColor?: string;
-  iconBg?: string;
-}) {
-  return (
-    <div className="rounded-xl border bg-card shadow-sm p-3 flex items-center gap-3 min-w-0">
-      <div className={`shrink-0 flex items-center justify-center rounded-lg p-2 ${iconBg}`}>
-        <Icon className={`h-4 w-4 ${iconColor}`} />
-      </div>
-      <div className="min-w-0 flex-1">
-        {loading ? (
-          <>
-            <Skeleton className="h-5 w-16 mb-1" />
-            <Skeleton className="h-3 w-24" />
-          </>
-        ) : (
-          <>
-            <p className="text-lg font-bold leading-tight truncate">{value}</p>
-            <p className="text-xs text-muted-foreground truncate">{label}</p>
-            {sub && <p className="text-xs text-muted-foreground/70 truncate">{sub}</p>}
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ── Protocol color helpers (update these too for richer colors) ──────────────
-function getProtocolGradient(proto: string) {
-  switch (proto) {
-    case 'VNC':
-      return 'from-emerald-500 to-teal-600';
-    case 'SSH':
-      return 'from-orange-500 to-amber-600';
-    default:
-      return 'from-sky-500 to-blue-600'; // RDP
-  }
-}
-
-function getProtocolBadge(proto: string) {
-  switch (proto) {
-    case 'VNC':
-      return 'bg-emerald-500/10 text-emerald-600 border-emerald-500/25';
-    case 'SSH':
-      return 'bg-orange-500/10 text-orange-600 border-orange-500/25';
-    default:
-      return 'bg-sky-500/10 text-sky-600 border-sky-500/25';
-  }
-}
 
 // ── SectionHeader ─────────────────────────────────────────────────────────────
 function SectionHeader({
@@ -265,7 +169,7 @@ function ComputerCard({ conn, onClick }: { conn: Connection; onClick: () => void
     <button
       type="button"
       onClick={onClick}
-      className="group w-full text-left flex items-center gap-3 px-3 py-3
+      className="group w-full text-left flex items-center gap-4 px-3 py-3
     rounded-xl cursor-pointer
     bg-gradient-to-r from-muted/60 to-muted/30
     dark:from-zinc-800/80 dark:to-zinc-900/60
@@ -345,12 +249,8 @@ export default function DashboardPage() {
   const router = useRouter();
 
   const [connections, setConnections] = useState<Connection[]>([]);
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [recentSessions, setRecentSessions] = useState<RecentSession[]>([]);
-  const [totalSessions, setTotalSessions] = useState(0);
   const [notices, setNotices] = useState<Notice[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sessionsLoading, setSessionsLoading] = useState(true);
   const [noticesLoading, setNoticesLoading] = useState(true);
 
   // ── Fetch all dashboard data ────────────────────────────────────────────
@@ -362,31 +262,12 @@ export default function DashboardPage() {
     // Connections + Stats (parallel)
     const fetchMain = async () => {
       try {
-        const [connRes, statsRes] = await Promise.all([
-          axios.get('/api/connections/list', { params }),
-          axios.get('/api/stats/dashboard', { params }),
-        ]);
+        const connRes = await axios.get('/api/connections/list', { params });
         setConnections(connRes.data ?? []);
-        setStats(statsRes.data ?? null);
       } catch (err) {
         console.error('Dashboard main fetch error:');
       } finally {
         setLoading(false);
-      }
-    };
-
-    // Recent sessions
-    const fetchSessions = async () => {
-      try {
-        const res = await axios.get('/api/sessions/recent', {
-          params: { ...params, limit: 5 },
-        });
-        setRecentSessions(res.data?.sessions ?? []);
-        setTotalSessions(res.data?.total ?? 0);
-      } catch (err) {
-        console.error('Recent sessions fetch error:');
-      } finally {
-        setSessionsLoading(false);
       }
     };
 
@@ -403,7 +284,6 @@ export default function DashboardPage() {
     };
 
     fetchMain();
-    fetchSessions();
     fetchNotices();
   }, [user]);
 
@@ -413,7 +293,7 @@ export default function DashboardPage() {
 
   // ── Render ──────────────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col gap-4 p-4 animate-in fade-in duration-300">
+    <div className="flex flex-col gap-5 p-4 animate-in fade-in duration-300">
       {/* ── Welcome ─────────────────────────────────────────────────────── */}
       <div className="flex items-center gap-2">
         <div>
@@ -421,56 +301,14 @@ export default function DashboardPage() {
             Welcome back, <span className="text-primary">{user?.username}</span>
             <Sparkles className="h-4 w-4 text-yellow-500" />
           </h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Here&apos;s what&apos;s happening with your remote connections today.
-          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">Here&apos;s your remote connections.</p>
         </div>
       </div>
 
-      {/* ── Compact Stats Row ────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard
-          icon={Monitor}
-          label="Total Connections"
-          value={stats?.totalConnections ?? connections.length}
-          sub="Available machines"
-          loading={loading}
-          iconBg="bg-blue-50"
-          iconColor="text-blue-600"
-        />
-        <StatCard
-          icon={Wifi}
-          label="Active Sessions"
-          value={stats?.activeSessions ?? 0}
-          sub="Currently connected"
-          loading={loading}
-          iconBg="bg-green-50"
-          iconColor="text-green-600"
-        />
-        <StatCard
-          icon={Clock}
-          label="Usage Today"
-          value={stats?.totalUsageToday ?? '0m'}
-          sub={`${stats?.totalSessionsToday ?? 0} session${(stats?.totalSessionsToday ?? 0) !== 1 ? 's' : ''} today`}
-          loading={loading}
-          iconBg="bg-amber-50"
-          iconColor="text-amber-600"
-        />
-        <StatCard
-          icon={CalendarClock}
-          label="Usage This Month"
-          value={stats?.totalUsageMonth ?? '0h'}
-          sub={`${stats?.totalSessionsMonth ?? 0} session${(stats?.totalSessionsMonth ?? 0) !== 1 ? 's' : ''} this month`}
-          loading={loading}
-          iconBg="bg-purple-50"
-          iconColor="text-purple-600"
-        />
-      </div>
-
       {/* ── Middle Row: My Computers (50%) | Notices (50%) ───────────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 min-h-[50vh] lg:min-h-125">
         {/* ── My Computers ─────────────────────────────────────────────── */}
-        <div className="rounded-xl border bg-card shadow-sm flex flex-col">
+        <div className="rounded-xl border bg-card shadow-sm flex flex-col h-full">
           <SectionHeader
             icon={Tv2}
             title="My Computers"
@@ -490,9 +328,9 @@ export default function DashboardPage() {
               </Button>
             }
           />
-          <div className="flex flex-col gap-1.5 p-2.5 overflow-y-auto" style={{ maxHeight: '260px' }}>
+          <div className="flex flex-col gap-1.5 p-2.5 overflow-y-auto flex-1">
             {loading ? (
-              [1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-[62px] w-full rounded-xl" />)
+              [1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-16 w-full rounded-lg" />)
             ) : connections.length > 0 ? (
               connections.map((conn) => (
                 <ComputerCard
@@ -502,7 +340,7 @@ export default function DashboardPage() {
                 />
               ))
             ) : (
-              <div className="flex flex-col items-center justify-center py-10 gap-3">
+              <div className="flex flex-col items-center justify-center py-10 gap-4">
                 <div className="h-12 w-12 rounded-2xl bg-muted flex items-center justify-center">
                   <Monitor className="h-6 w-6 text-muted-foreground/40" />
                 </div>
@@ -513,9 +351,9 @@ export default function DashboardPage() {
         </div>
 
         {/* ── Notices / News Room ──────────────────────────────────────── */}
-        <div className="rounded-xl border bg-card shadow-sm flex flex-col">
+        <div className="rounded-xl border bg-card shadow-sm flex flex-col h-full">
           <SectionHeader icon={Megaphone} title="Notices / News Room" sub="Latest announcements" />
-          <div className="flex flex-col gap-1.5 p-2 overflow-y-auto" style={{ maxHeight: '260px' }}>
+          <div className="flex flex-col gap-1.5 p-2.5 overflow-y-auto flex-1">
             {noticesLoading ? (
               [1, 2, 3].map((i) => <Skeleton key={i} className="h-16 w-full rounded-lg" />)
             ) : notices.length > 0 ? (
@@ -557,150 +395,6 @@ export default function DashboardPage() {
             )}
           </div>
         </div>
-      </div>
-
-      {/* ── Recent Sessions Table (bottom) ───────────────────────────────── */}
-      <div className="rounded-xl border bg-card shadow-sm flex flex-col">
-        <SectionHeader
-          icon={Activity}
-          title="Recent Sessions"
-          sub={sessionsLoading ? 'Loading...' : `Showing latest 5 of ${totalSessions} total`}
-          action={
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 text-xs px-2"
-              onClick={() => router.push('/dashboard/activity')}
-            >
-              More <ChevronRight className="h-3 w-3 ml-0.5" />
-            </Button>
-          }
-        />
-
-        {/* Table wrapper with overflow */}
-        <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: '280px' }}>
-          <table className="w-full text-xs">
-            <thead className="sticky top-0 bg-muted/60 backdrop-blur-sm z-10">
-              <tr className="border-b">
-                <th className="text-left font-medium text-muted-foreground px-3 py-2 whitespace-nowrap">
-                  Start Date &amp; Time
-                </th>
-                <th className="text-left font-medium text-muted-foreground px-3 py-2 whitespace-nowrap">
-                  End Date &amp; Time
-                </th>
-                <th className="text-left font-medium text-muted-foreground px-3 py-2 whitespace-nowrap">
-                  Machine
-                </th>
-                <th className="text-left font-medium text-muted-foreground px-3 py-2">Protocol</th>
-                <th className="text-left font-medium text-muted-foreground px-3 py-2">Duration</th>
-                <th className="text-left font-medium text-muted-foreground px-3 py-2">IP Address</th>
-                <th className="text-left font-medium text-muted-foreground px-3 py-2">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sessionsLoading ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i} className="border-b last:border-0">
-                    {Array.from({ length: 7 }).map((_, j) => (
-                      <td key={j} className="px-3 py-2">
-                        <Skeleton className="h-4 w-full" />
-                      </td>
-                    ))}
-                  </tr>
-                ))
-              ) : recentSessions.length > 0 ? (
-                recentSessions.map((session) => {
-                  const start = formatDate(session.startDate);
-                  const end = session.endDate ? formatDate(session.endDate) : null;
-                  return (
-                    <tr
-                      key={session.historyEntryIdentifier}
-                      className="border-b last:border-0 hover:bg-muted/40 transition-colors"
-                    >
-                      {/* Start */}
-                      <td className="px-3 py-2 whitespace-nowrap">
-                        <p className="font-medium text-foreground">{start.date}</p>
-                        <p className="text-muted-foreground">{start.time}</p>
-                      </td>
-                      {/* End */}
-                      <td className="px-3 py-2 whitespace-nowrap">
-                        {end ? (
-                          <>
-                            <p className="font-medium text-foreground">{end.date}</p>
-                            <p className="text-muted-foreground">{end.time}</p>
-                          </>
-                        ) : (
-                          <span className="text-green-600 font-medium">Active</span>
-                        )}
-                      </td>
-                      {/* Machine */}
-                      <td className="px-3 py-2">
-                        <div className="flex items-center gap-1.5">
-                          <Monitor className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                          <span className="truncate max-w-[130px]">{session.connectionName}</span>
-                        </div>
-                      </td>
-                      {/* Protocol */}
-                      <td className="px-3 py-2">
-                        <Badge
-                          variant="outline"
-                          className={`text-xs px-1.5 py-0 h-5 ${getProtocolColor(session.protocol)}`}
-                        >
-                          {session.protocol}
-                        </Badge>
-                      </td>
-                      {/* Duration */}
-                      <td className="px-3 py-2 font-medium">{session.durationFormatted}</td>
-                      {/* IP */}
-                      <td className="px-3 py-2 text-muted-foreground">{session.remoteHost}</td>
-                      {/* Status */}
-                      <td className="px-3 py-2">
-                        <Badge
-                          variant="outline"
-                          className={
-                            session.status === 'ACTIVE'
-                              ? 'border-green-500/30 bg-green-50 text-green-600 text-xs px-1.5 py-0 h-5'
-                              : 'border-red-500/30 bg-red-50 text-red-600 text-xs px-1.5 py-0 h-5'
-                          }
-                        >
-                          {session.status}
-                        </Badge>
-                      </td>
-                    </tr>
-                  );
-                })
-              ) : (
-                <tr>
-                  <td colSpan={7} className="px-3 py-8 text-center">
-                    <div className="flex flex-col items-center gap-1">
-                      <Activity className="h-6 w-6 text-muted-foreground/40" />
-                      <p className="text-xs text-muted-foreground">No sessions recorded yet</p>
-                    </div>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Footer */}
-        {!sessionsLoading && recentSessions.length > 0 && (
-          <div className="flex items-center justify-between px-3 py-2 border-t bg-muted/20">
-            <p className="text-xs text-muted-foreground">
-              Showing <span className="font-semibold text-foreground">{recentSessions.length}</span> of{' '}
-              <span className="font-semibold text-foreground">{totalSessions}</span> sessions
-            </p>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs"
-              onClick={() => router.push('/dashboard/activity')}
-            >
-              View All Sessions
-              <ChevronRight className="h-3 w-3 ml-1" />
-            </Button>
-          </div>
-        )}
       </div>
     </div>
   );

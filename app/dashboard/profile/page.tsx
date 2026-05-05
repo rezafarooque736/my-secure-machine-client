@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/store';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -16,9 +15,6 @@ import {
   Mail,
   Building2,
   Shield,
-  Clock,
-  Activity,
-  Edit,
   Save,
   X,
   RefreshCw,
@@ -42,21 +38,6 @@ interface ProfileData {
   accountCreated: string | null;
 }
 
-interface ActivityStats {
-  totalSessions: number;
-  totalDuration: number; // minutes
-  lastLogin: string;
-  mostUsedProtocol: string;
-  activeToday: number;
-}
-
-interface EditForm {
-  fullName: string;
-  email: string;
-  organization: string;
-  organizationalRole: string;
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
@@ -72,13 +53,6 @@ function formatDate(iso: string | null | undefined): string {
   } catch {
     return '—';
   }
-}
-
-function formatDuration(minutes: number): string {
-  if (!minutes) return '0h 0m';
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return `${h}h ${m}m`;
 }
 
 function getInitials(name: string | null, username: string): string {
@@ -125,57 +99,16 @@ function InfoRow({
   );
 }
 
-function StatCard({
-  icon: Icon,
-  label,
-  value,
-  color,
-  loading,
-}: {
-  icon: React.ElementType;
-  label: string;
-  value: string;
-  color: string;
-  loading: boolean;
-}) {
-  return (
-    <div className="flex items-center gap-3 p-3 rounded-lg border bg-card">
-      <div className={`p-2 rounded-lg ${color}`}>
-        <Icon className="h-4 w-4" />
-      </div>
-      <div>
-        {loading ? (
-          <Skeleton className="h-5 w-12 mb-1" />
-        ) : (
-          <p className="text-base font-bold leading-tight">{value}</p>
-        )}
-        <p className="text-xs text-muted-foreground">{label}</p>
-      </div>
-    </div>
-  );
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Main Page
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function ProfilePage() {
   const { user } = useAuthStore();
-  const router = useRouter();
 
   const [profile, setProfile] = useState<ProfileData | null>(null);
-  const [stats, setStats] = useState<ActivityStats | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
-  const [statsLoading, setStatsLoading] = useState(true);
-  const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-
-  const [form, setForm] = useState<EditForm>({
-    fullName: '',
-    email: '',
-    organization: '',
-    organizationalRole: '',
-  });
 
   // ── Fetch profile ──────────────────────────────────────────────────────────
   const fetchProfile = useCallback(async () => {
@@ -190,12 +123,6 @@ export default function ProfilePage() {
         },
       });
       setProfile(res.data);
-      setForm({
-        fullName: res.data.fullName ?? '',
-        email: res.data.email ?? '',
-        organization: res.data.organization ?? '',
-        organizationalRole: res.data.organizationalRole ?? '',
-      });
     } catch (err) {
       toast.error('Failed to load profile');
     } finally {
@@ -203,72 +130,9 @@ export default function ProfilePage() {
     }
   }, [user]);
 
-  // ── Fetch activity stats ───────────────────────────────────────────────────
-  const fetchStats = useCallback(async () => {
-    if (!user) return;
-    setStatsLoading(true);
-    try {
-      const res = await axios.get('/api/stats/activity', {
-        params: {
-          token: user.authToken,
-          dataSource: user.dataSource,
-          username: user.username,
-        },
-      });
-      setStats(res.data);
-    } catch {
-      // Non-fatal — stats section shows zeros
-    } finally {
-      setStatsLoading(false);
-    }
-  }, [user]);
-
   useEffect(() => {
     fetchProfile();
-    fetchStats();
-  }, [fetchProfile, fetchStats]);
-
-  // ── Save profile ───────────────────────────────────────────────────────────
-  const handleSave = async () => {
-    if (!user) return;
-    setSaving(true);
-    try {
-      await axios.put(
-        '/api/profile',
-        {
-          fullName: form.fullName,
-          email: form.email,
-          organization: form.organization,
-          organizationalRole: form.organizationalRole,
-        },
-        {
-          params: {
-            token: user.authToken,
-            dataSource: user.dataSource,
-            username: user.username,
-          },
-        },
-      );
-      toast.success('Profile updated successfully');
-      setIsEditing(false);
-      fetchProfile();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (err: any) {
-      toast.error(err?.response?.data?.error ?? 'Failed to update profile');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleCancelEdit = () => {
-    setIsEditing(false);
-    setForm({
-      fullName: profile?.fullName ?? '',
-      email: profile?.email ?? '',
-      organization: profile?.organization ?? '',
-      organizationalRole: profile?.organizationalRole ?? '',
-    });
-  };
+  }, [fetchProfile]);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Render
@@ -281,19 +145,6 @@ export default function ProfilePage() {
           <h1 className="text-xl font-bold tracking-tight">My Profile</h1>
           <p className="text-xs text-muted-foreground mt-0.5">View and manage your account information</p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-8 text-xs gap-1.5"
-          onClick={() => {
-            fetchProfile();
-            fetchStats();
-          }}
-          disabled={profileLoading}
-        >
-          <RefreshCw className={`h-3.5 w-3.5 ${profileLoading ? 'animate-spin' : ''}`} />
-          Refresh
-        </Button>
       </div>
 
       {/* ── Top row: Avatar card + Info card ────────────────────────────── */}
@@ -323,202 +174,46 @@ export default function ProfilePage() {
                 </div>
               </>
             )}
-
-            <Separator className="w-full" />
-
-            {/* Quick actions */}
-            <div className="w-full space-y-1.5">
-              {!isEditing ? (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="w-full h-8 text-xs gap-1.5"
-                  onClick={() => setIsEditing(true)}
-                >
-                  <Edit className="h-3.5 w-3.5" />
-                  Edit Profile
-                </Button>
-              ) : (
-                <div className="flex gap-1.5">
-                  <Button
-                    size="sm"
-                    className="flex-1 h-8 text-xs gap-1"
-                    onClick={handleSave}
-                    disabled={saving}
-                  >
-                    {saving ? (
-                      <span className="h-3 w-3 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                    ) : (
-                      <Save className="h-3.5 w-3.5" />
-                    )}
-                    Save
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="flex-1 h-8 text-xs gap-1"
-                    onClick={handleCancelEdit}
-                    disabled={saving}
-                  >
-                    <X className="h-3.5 w-3.5" />
-                    Cancel
-                  </Button>
-                </div>
-              )}
-            </div>
           </CardContent>
         </Card>
 
-        {/* Profile details / edit form */}
+        {/* Profile details */}
         <Card className="md:col-span-2">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <User className="h-4 w-4 text-primary" />
-              {isEditing ? 'Edit Profile' : 'Profile Details'}
+              Profile Details
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
-            {isEditing ? (
-              /* ── Edit form ──────────────────────────────────────────────── */
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="fullName" className="text-xs font-semibold">
-                    Full Name
-                  </Label>
-                  <Input
-                    id="fullName"
-                    value={form.fullName}
-                    onChange={(e) => setForm({ ...form, fullName: e.target.value })}
-                    placeholder="e.g. John Doe"
-                    className="h-8 text-xs"
-                    disabled={saving}
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="email" className="text-xs font-semibold">
-                    Email Address
-                  </Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={form.email}
-                    onChange={(e) => setForm({ ...form, email: e.target.value })}
-                    placeholder="e.g. user@example.com"
-                    className="h-8 text-xs"
-                    disabled={saving}
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="org" className="text-xs font-semibold">
-                    Organization
-                  </Label>
-                  <Input
-                    id="org"
-                    value={form.organization}
-                    onChange={(e) => setForm({ ...form, organization: e.target.value })}
-                    placeholder="e.g. Railtel"
-                    className="h-8 text-xs"
-                    disabled={saving}
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="orgRole" className="text-xs font-semibold">
-                    Organizational Role
-                  </Label>
-                  <Input
-                    id="orgRole"
-                    value={form.organizationalRole}
-                    onChange={(e) => setForm({ ...form, organizationalRole: e.target.value })}
-                    placeholder="e.g. Network Engineer"
-                    className="h-8 text-xs"
-                    disabled={saving}
-                  />
-                </div>
-
-                {/* Username (read-only) */}
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label className="text-xs font-semibold text-muted-foreground">
-                    Username (cannot be changed)
-                  </Label>
-                  <Input value={user?.username ?? ''} disabled className="h-8 text-xs bg-muted" />
-                </div>
-              </div>
-            ) : (
-              /* ── Read-only info rows ─────────────────────────────────────── */
-              <div className="divide-y">
-                <InfoRow icon={User} label="Full Name" value={profile?.fullName} loading={profileLoading} />
-                <InfoRow icon={Hash} label="Username" value={user?.username} loading={profileLoading} />
-                <InfoRow icon={Mail} label="Email Address" value={profile?.email} loading={profileLoading} />
-                <InfoRow
-                  icon={Building2}
-                  label="Organization"
-                  value={profile?.organization}
-                  loading={profileLoading}
-                />
-                <InfoRow
-                  icon={Briefcase}
-                  label="Organizational Role"
-                  value={profile?.organizationalRole}
-                  loading={profileLoading}
-                />
-                <InfoRow icon={Shield} label="System Role" loading={profileLoading} />
-                <InfoRow icon={Monitor} label="Data Source" value={user?.dataSource} />
-                <InfoRow
-                  icon={CalendarClock}
-                  label="Last Active"
-                  value={formatDate(profile?.lastActive)}
-                  loading={profileLoading}
-                />
-              </div>
-            )}
+            <div className="divide-y">
+              <InfoRow icon={User} label="Full Name" value={profile?.fullName} loading={profileLoading} />
+              <InfoRow icon={Hash} label="Username" value={user?.username} loading={profileLoading} />
+              <InfoRow icon={Mail} label="Email Address" value={profile?.email} loading={profileLoading} />
+              <InfoRow
+                icon={Building2}
+                label="Organization"
+                value={profile?.organization}
+                loading={profileLoading}
+              />
+              <InfoRow
+                icon={Briefcase}
+                label="Organizational Role"
+                value={profile?.organizationalRole}
+                loading={profileLoading}
+              />
+              <InfoRow icon={Shield} label="System Role" loading={profileLoading} />
+              <InfoRow icon={Monitor} label="Data Source" value={user?.dataSource} />
+              <InfoRow
+                icon={CalendarClock}
+                label="Last Active"
+                value={formatDate(profile?.lastActive)}
+                loading={profileLoading}
+              />
+            </div>
           </CardContent>
         </Card>
       </div>
-
-      {/* ── Activity Stats ───────────────────────────────────────────────── */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            <Activity className="h-4 w-4 text-primary" />
-            Activity Overview
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="pt-0">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <StatCard
-              icon={Monitor}
-              label="Total Sessions"
-              value={stats?.totalSessions?.toString() ?? '0'}
-              color="bg-blue-500/10 text-blue-500"
-              loading={statsLoading}
-            />
-            <StatCard
-              icon={Clock}
-              label="Total Time"
-              value={formatDuration(stats?.totalDuration ?? 0)}
-              color="bg-purple-500/10 text-purple-500"
-              loading={statsLoading}
-            />
-            <StatCard
-              icon={Activity}
-              label="Active Today"
-              value={stats?.activeToday?.toString() ?? '0'}
-              color="bg-green-500/10 text-green-500"
-              loading={statsLoading}
-            />
-            <StatCard
-              icon={Shield}
-              label="Top Protocol"
-              value={stats?.mostUsedProtocol ?? 'N/A'}
-              color="bg-orange-500/10 text-orange-500"
-              loading={statsLoading}
-            />
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

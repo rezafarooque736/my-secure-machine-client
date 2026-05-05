@@ -2,13 +2,14 @@
 
 import * as React from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { ChevronDown, LogOut } from 'lucide-react';
+import { ChevronDown, LogOut, Shield } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -28,7 +29,7 @@ import { Separator } from './ui/separator';
 export function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, logout } = useAuthStore();
+  const { logout } = useAuthStore();
 
   const handleLogout = async () => {
     await logout();
@@ -75,56 +76,24 @@ export function AppSidebar() {
       <SidebarContent>
         {/* Main Menu */}
         <SidebarGroup>
+          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {navigationItems.map((item) => (
                 <React.Fragment key={item.href}>
-                  {item.items ? (
-                    <Collapsible defaultOpen={pathname.startsWith(item.href)} className="group/collapsible">
-                      <SidebarMenuItem>
-                        <CollapsibleTrigger asChild>
-                          <SidebarMenuButton
-                            tooltip={item.title}
-                            className={cn(
-                              pathname.startsWith(item.href) && 'bg-accent text-accent-foreground',
-                            )}
-                          >
-                            <item.icon className="size-4" />
-                            <span>{item.title}</span>
-                            <ChevronDown className="ml-auto size-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-180" />
-                          </SidebarMenuButton>
-                        </CollapsibleTrigger>
-                        <CollapsibleContent>
-                          <SidebarMenuSub>
-                            {item.items.map((subItem) => (
-                              <SidebarMenuSubItem key={subItem.href}>
-                                <SidebarMenuSubButton asChild isActive={pathname === subItem.href}>
-                                  <a href={subItem.href}>
-                                    <subItem.icon className="size-4" />
-                                    <span>{subItem.title}</span>
-                                  </a>
-                                </SidebarMenuSubButton>
-                              </SidebarMenuSubItem>
-                            ))}
-                          </SidebarMenuSub>
-                        </CollapsibleContent>
-                      </SidebarMenuItem>
-                    </Collapsible>
-                  ) : (
-                    <SidebarMenuItem>
-                      <SidebarMenuButton asChild tooltip={item.title} isActive={pathname === item.href}>
-                        <a href={item.href}>
-                          <item.icon className="size-4" />
-                          <span>{item.title}</span>
-                          {item.badge && (
-                            <Badge variant="secondary" className="ml-auto">
-                              {item.badge}
-                            </Badge>
-                          )}
-                        </a>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  )}
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild tooltip={item.title} isActive={pathname === item.href}>
+                      <a href={item.href}>
+                        <item.icon className="size-4" />
+                        <span>{item.title}</span>
+                        {item.badge && (
+                          <Badge variant="secondary" className="ml-auto">
+                            {item.badge}
+                          </Badge>
+                        )}
+                      </a>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
                 </React.Fragment>
               ))}
             </SidebarMenu>

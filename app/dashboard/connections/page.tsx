@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuthStore } from '@/lib/store';
-import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,15 +16,12 @@ import {
   Grid3x3,
   List,
   SortAsc,
-  Clock,
   ExternalLink,
   Play,
-  RefreshCw,
   ArrowRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import axios from 'axios';
-import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -37,14 +33,6 @@ interface Connection {
   hostname?: string;
   port?: number;
   lastUsed?: string;
-}
-
-interface RecentConnection {
-  identifier: string;
-  name: string;
-  protocol: string;
-  lastUsed: string;
-  duration?: number;
 }
 
 type ViewMode = 'grid' | 'list';
@@ -66,7 +54,6 @@ function getProtocolColor(protocol: string) {
 
 export default function ConnectionsPage() {
   const { user } = useAuthStore();
-  const router = useRouter();
 
   // All connections state
   const [connections, setConnections] = useState<Connection[]>([]);
@@ -75,10 +62,6 @@ export default function ConnectionsPage() {
   const [selectedProtocol, setSelectedProtocol] = useState<string>('all');
   const [sortBy, setSortBy] = useState<SortBy>('name');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
-
-  // Recent connections state
-  const [recentConnections, setRecentConnections] = useState<RecentConnection[]>([]);
-  const [loadingRecent, setLoadingRecent] = useState(true);
 
   // ── Fetch all connections ────────────────────────────────────────────────
   const fetchConnections = useCallback(async () => {
@@ -96,26 +79,9 @@ export default function ConnectionsPage() {
     }
   }, [user]);
 
-  // ── Fetch recent connections ─────────────────────────────────────────────
-  const fetchRecentConnections = useCallback(async () => {
-    if (!user) return;
-    setLoadingRecent(true);
-    try {
-      const res = await axios.get('/api/connections/recent', {
-        params: { token: user.authToken, dataSource: user.dataSource, limit: 20 },
-      });
-      setRecentConnections(res.data);
-    } catch {
-      toast.error('Failed to load recent connections');
-    } finally {
-      setLoadingRecent(false);
-    }
-  }, [user]);
-
   useEffect(() => {
     fetchConnections();
-    fetchRecentConnections();
-  }, [fetchConnections, fetchRecentConnections]);
+  }, [fetchConnections]);
 
   // ── Filter + sort ────────────────────────────────────────────────────────
   const filteredConnections = useMemo(() => {
@@ -199,15 +165,6 @@ export default function ConnectionsPage() {
             {!loadingAll && (
               <span className="ml-1 bg-muted text-muted-foreground rounded-full px-1.5 py-0 text-[10px] font-semibold">
                 {connections.length}
-              </span>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="recent" className="text-xs gap-1.5">
-            <Clock className="h-3.5 w-3.5" />
-            Recent
-            {!loadingRecent && recentConnections.length > 0 && (
-              <span className="ml-1 bg-muted text-muted-foreground rounded-full px-1.5 py-0 text-[10px] font-semibold">
-                {recentConnections.length}
               </span>
             )}
           </TabsTrigger>
@@ -398,119 +355,6 @@ export default function ConnectionsPage() {
                   ? 'Try adjusting your filters or search query.'
                   : 'Contact your administrator to get access to remote desktops.'}
               </p>
-            </div>
-          )}
-        </TabsContent>
-
-        {/* ── RECENT TAB ───────────────────────────────────────────────── */}
-        <TabsContent value="recent" className="mt-4 space-y-4">
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-muted-foreground">
-              Your last <span className="font-semibold text-foreground">20</span> sessions
-            </p>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 text-xs gap-1.5"
-              onClick={fetchRecentConnections}
-              disabled={loadingRecent}
-            >
-              <RefreshCw className={cn('h-3.5 w-3.5', loadingRecent && 'animate-spin')} />
-              Refresh
-            </Button>
-          </div>
-
-          {loadingRecent ? (
-            <div className="space-y-2">
-              {[1, 2, 3, 4].map((i) => (
-                <Skeleton key={i} className="h-20 rounded-xl" />
-              ))}
-            </div>
-          ) : recentConnections.length > 0 ? (
-            <div className="space-y-2">
-              {recentConnections.map((conn, idx) => (
-                <div
-                  key={conn.identifier}
-                  onClick={() => handleConnectionClick(conn.identifier)}
-                  className="group flex items-center gap-3 px-3 py-3 rounded-xl cursor-pointer
-                    bg-gradient-to-r from-muted/60 to-muted/30
-                    dark:from-zinc-800/80 dark:to-zinc-900/60
-                    border border-sky-500/40 dark:border-sky-400/30
-                    [box-shadow:0_0_0_1px_rgba(56,189,248,0.15),0_2px_8px_rgba(56,189,248,0.12)]
-                    dark:[box-shadow:0_0_0_1px_rgba(56,189,248,0.2),0_2px_12px_rgba(56,189,248,0.18)]
-                    hover:border-sky-400/70
-                    hover:[box-shadow:0_0_0_1px_rgba(56,189,248,0.3),0_4px_16px_rgba(56,189,248,0.25)]
-                    dark:hover:[box-shadow:0_0_0_1px_rgba(56,189,248,0.4),0_4px_20px_rgba(56,189,248,0.35)]
-                    active:scale-[0.99] transition-all duration-200"
-                >
-                  {/* Rank number */}
-                  <span className="text-xs font-bold text-muted-foreground/40 w-5 text-right shrink-0">
-                    {idx + 1}
-                  </span>
-
-                  {/* Icon */}
-                  <div className="p-2 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors shrink-0">
-                    <Monitor className="h-4 w-4 text-primary" />
-                  </div>
-
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold truncate group-hover:text-primary transition-colors">
-                      {conn.name}
-                    </p>
-                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                      <Badge
-                        variant="outline"
-                        className={cn('text-xs py-0 h-4 px-1.5', getProtocolColor(conn.protocol))}
-                      >
-                        {conn.protocol.toUpperCase()}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {formatDistanceToNow(new Date(conn.lastUsed), { addSuffix: true })}
-                      </span>
-                      {conn.duration && (
-                        <span className="text-xs text-muted-foreground">· {conn.duration}min session</span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Connect CTA */}
-                  <div
-                    className="shrink-0 flex items-center gap-1.5
-                    px-2.5 py-1 rounded-lg
-                    bg-primary/8 dark:bg-primary/15
-                    border border-primary/20
-                    text-primary text-xs font-semibold
-                    group-hover:bg-primary group-hover:border-primary group-hover:text-primary-foreground
-                    transition-all duration-200"
-                  >
-                    Connect
-                    <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform duration-200" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-16 rounded-xl border bg-muted/20">
-              <div className="p-4 bg-muted rounded-full mb-4">
-                <Clock className="h-7 w-7 text-muted-foreground" />
-              </div>
-              <h3 className="text-base font-semibold mb-1">No recent connections</h3>
-              <p className="text-xs text-muted-foreground mb-4">
-                Start connecting to see your session history here.
-              </p>
-              <Button
-                size="sm"
-                className="h-8 text-xs gap-1.5"
-                onClick={() => {
-                  const allTab = document.querySelector('[data-value="all"]') as HTMLElement;
-                  allTab?.click();
-                }}
-              >
-                Browse All Connections
-                <ArrowRight className="h-3.5 w-3.5" />
-              </Button>
             </div>
           )}
         </TabsContent>

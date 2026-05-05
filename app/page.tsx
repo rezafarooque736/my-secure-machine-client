@@ -69,14 +69,17 @@ export default function LoginPage() {
     defaultValues: { username: '', password: '' },
   });
 
+  // ── hydration ───────────────────────────────────────────────
   useEffect(() => setIsHydrated(true), []);
 
+  // ── redirect if already authenticated (no delay screen) ─────
   useEffect(() => {
     if (isHydrated && isAuthenticated && !showLoadingQuotes) {
       router.replace('/dashboard');
     }
   }, [isHydrated, isAuthenticated, showLoadingQuotes, router]);
 
+  // ── countdown logic (NO navigation here) ─────────────────────
   useEffect(() => {
     if (!showLoadingQuotes) return;
 
@@ -84,7 +87,6 @@ export default function LoginPage() {
       setCountdown((prev) => {
         if (prev <= 1) {
           clearInterval(interval);
-          router.replace('/dashboard');
           return 0;
         }
         return prev - 1;
@@ -92,7 +94,14 @@ export default function LoginPage() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [showLoadingQuotes, router]);
+  }, [showLoadingQuotes]);
+
+  // ── navigation AFTER countdown finishes ──────────────────────
+  useEffect(() => {
+    if (showLoadingQuotes && countdown === 0) {
+      router.replace('/dashboard');
+    }
+  }, [countdown, showLoadingQuotes, router]);
 
   if (showLoadingQuotes) {
     return (
@@ -141,7 +150,7 @@ export default function LoginPage() {
     } catch (error: any) {
       if (error instanceof z.ZodError) {
         toast.error('Validation Error', {
-          description: error.errors[0]?.message || 'Invalid input',
+          description: error.message || 'Invalid input',
         });
         return;
       }

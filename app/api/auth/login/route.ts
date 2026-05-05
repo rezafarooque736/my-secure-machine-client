@@ -5,6 +5,7 @@ import { loginSchema } from '@/lib/validations/auth';
 import { rateLimiters } from '@/lib/rate-limit';
 import { z } from 'zod';
 import { getGuacamoleApiUrl } from '@/lib/guacamole-api';
+import { ActivityLogCategory, ActivityLogLevel } from '@/lib/generated/prisma/enums';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -127,6 +128,23 @@ export async function POST(request: NextRequest) {
       }),
     ]);
 
+    prisma.activityLog.create({
+      data: {
+        level: ActivityLogLevel.SUCCESS,
+        category: ActivityLogCategory.AUTH,
+        message: `User ${guacUsername} logged in successfully`,
+        username: guacUsername,
+        ipAddress,
+        metadata: JSON.stringify({
+          sessionId: session.id,
+          browser: uaMeta.browser,
+          os: uaMeta.os,
+          device: uaMeta.device,
+          dataSource,
+        }),
+      },
+    });
+
     return NextResponse.json(
       {
         authToken,
@@ -144,7 +162,7 @@ export async function POST(request: NextRequest) {
     );
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Validation failed', details: error.errors }, { status: 400 });
+      return NextResponse.json({ error: 'Validation failed', details: error.message }, { status: 400 });
     }
 
     return NextResponse.json(
